@@ -1,8 +1,14 @@
 # BUILD
 
-**Status (2026-11-20):** reading and posting work on Jenna's phone; her first post from the app reached the sandbox. The Share extension is built and needs trying on the phone (plan step 5 ✓).
+**Status (2026-11-20):** version 0.1 (build 1) uploaded to TestFlight from commit 9bc7c4b. Next: Jenna installs it from TestFlight and uses it for a day (plan step 6 ✓); then the public pages and the external group (step 7).
 
 ## Versions
+
+### v0.1, build 1: first TestFlight upload (2026-11-20)
+- **Posting:** connect a blyg with a pasted Client-access token, then post text, a link and a photo.
+- **Share extension:** "Post to blyg" from any app's share sheet.
+- **Icon:** a quote mark, in light and dark versions.
+- Jenna's first posts from the app, to the sandbox and then to blyg.jdbb.net, worked on her phone before the upload.
 
 ### v0.1 reader (2026-11-20)
 - **Adding a blyg:** follows spec 0.4 §12.1 steps 1–5. It accepts an address, a post link, a feed URL or a page with `<link rel="blyg">`, within six fetches. On failure it lists the URLs it tried.
@@ -53,3 +59,5 @@
 
 - **`URL.path()` is percent-encoded.** `FileManager.fileExists(atPath: url.path())` is false for anything under `Application Support`, so the saved library was always read from its backup. Use `path(percentEncoded: false)`, and give test folders a space in their name. Found by the offline-state screenshot, not by the tests.
 - **A web view's text reaches the accessibility tree late on a busy simulator.** The UI test waits 20 s for it.
+- **A development archive doesn't register the bundle IDs.** With no capabilities that need one, automatic signing uses the team's wildcard profile, so App Store Connect's New App form can't find the IDs. An App Store export (`xcodebuild -exportArchive` with `destination` `export`, nothing uploaded) registers them. Afterwards, reload App Store Connect.
+- **SF Symbols and Apple's system fonts can't be used in app icons** (licence). The icon is drawn as shapes by `scripts/make-icon.swift`.
