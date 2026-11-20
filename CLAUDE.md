@@ -14,6 +14,7 @@
 - **Ask Jenna before** creating a VM, uploading to TestFlight, adding testers or submitting for review.
 - **Never change the live blyg:** blyg.jdbb.net and its VMs (`jd-blyg`, `jd-blyk` on exe.dev) are read-only from here. The app posts only to the sandbox VM `blyg-sandbox` until Jenna says otherwise.
 - **Tokens:** only in the Keychain (app) or a gitignored `.env` (scripts). Never in the bundle, logs, docs, tests or commits.
-- **API:** Blygger Studio's `openapi.json` is the source of truth. Hand-write a small Swift client with names that match it. Before writing a call in Swift, try it on the sandbox with Studio's JS SDK from Node.
+- **Sandbox blyg:** https://blyg-sandbox.exe.xyz/ on exe.dev VM `blyg-sandbox`, Rex host `blyg-sandbox`. It runs unmodified Studio with `wrangler dev`, and its setup note is `~/BLYG-SANDBOX.md` on the VM. The owner password is in `~/.config/blyg/secrets.env` on the VM: never print it. The sandbox token is `BLYG_SANDBOX_TOKEN` in this folder's gitignored `.env`. Load it with `set -a; . ./.env; set +a` and never echo it.
+- **API:** Blygger Studio's `openapi.json` is the source of truth. The REST API is at `{mount}/api` (since Studio 0.49.12; the old domain-root `/api` returns 404 on path-mounted blygs). Take each blyg's API URL from what it advertises (its capabilities or OpenAPI), not by building it. Hand-write a small Swift client with names that match it. Before writing a call in Swift, try it on the sandbox with Studio's JS SDK from Node.
 - **Stack:** SwiftUI, Swift 6, iOS 18+, Apple frameworks only. A package needs Jenna's OK in `BUILD.md` Decisions.
 - **Records:** `AGENTLOG.md` (one entry per session, newest first) and `BUILD.md` (status, versions, decisions, lessons), per the global rules.
