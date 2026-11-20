@@ -36,6 +36,7 @@ struct BlygsView: View {
         .navigationTitle("Your blygs")
         .toolbar {
             Button { showingAdd = true } label: { Label("Add a blyg", systemImage: "plus") }
+                .accessibilityIdentifier("blygsAddButton")
         }
         .refreshable { await model.refreshAll() }
     }

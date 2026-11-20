@@ -17,12 +17,13 @@ struct TimelineScreen: View {
                         .accessibilityIdentifier("blygsButton")
                     }
                 }
+                // Posting is the everyday action once a blyg is connected, so it takes the top-right spot;
+                // adding a blyg then lives in Your blygs (and the empty state).
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingAdd = true } label: { Label("Add a blyg", systemImage: "plus") }
-                        .accessibilityIdentifier("addBlygButton")
-                }
-                if !model.postingBlygs.isEmpty {
-                    ToolbarItem(placement: .bottomBar) {
+                    if model.postingBlygs.isEmpty {
+                        Button { showingAdd = true } label: { Label("Add a blyg", systemImage: "plus") }
+                            .accessibilityIdentifier("addBlygButton")
+                    } else {
                         Button { showingComposer = true } label: { Label("New post", systemImage: "square.and.pencil") }
                             .accessibilityIdentifier("composeButton")
                     }
