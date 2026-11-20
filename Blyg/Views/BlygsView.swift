@@ -33,6 +33,16 @@ struct BlygsView: View {
                 }
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            HStack(spacing: 24) {
+                Link("Help", destination: URL(string: "https://djinna.github.io/blyg-ios/")!)
+                Link("Privacy", destination: URL(string: "https://djinna.github.io/blyg-ios/privacy.html")!)
+            }
+            .font(.footnote)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .background(.bar)
+        }
         .navigationTitle("Your blygs")
         .toolbar {
             Button { showingAdd = true } label: { Label("Add a blyg", systemImage: "plus") }
