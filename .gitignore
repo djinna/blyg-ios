@@ -1,0 +1,16 @@
+# Secrets never go in git: this repo is public
+.env
+.env.*
+*.token
+
+# Xcode
+DerivedData/
+DerivedData.noindex/
+build/
+xcuserdata/
+*.xcuserstate
+*.ipa
+*.dSYM.zip
+
+# macOS
+.DS_Store
