@@ -3,6 +3,7 @@ import SwiftUI
 struct TimelineScreen: View {
     @Environment(LibraryModel.self) private var model
     @Binding var showingAdd: Bool
+    @Binding var showingComposer: Bool
 
     var body: some View {
         content
@@ -19,6 +20,12 @@ struct TimelineScreen: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingAdd = true } label: { Label("Add a blyg", systemImage: "plus") }
                         .accessibilityIdentifier("addBlygButton")
+                }
+                if !model.postingBlygs.isEmpty {
+                    ToolbarItem(placement: .bottomBar) {
+                        Button { showingComposer = true } label: { Label("New post", systemImage: "square.and.pencil") }
+                            .accessibilityIdentifier("composeButton")
+                    }
                 }
             }
     }

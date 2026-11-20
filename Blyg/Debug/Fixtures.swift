@@ -97,8 +97,37 @@ nonisolated enum Fixtures {
         "https://sample.example/items/\(unknownKind).json": Response(status: 200, contentType: "application/json", body: unknownKindDocument),
     ]
 
-    static func response(for url: URL) -> Response {
-        responses[url.absoluteString] ?? Response(status: 404, contentType: "text/plain", body: "Not Found")
+    /// A pretend Studio owner API for sample.example, answering the calls the composer makes.
+    /// Bodies follow the shapes the real API returned on the sandbox blyg (Studio 0.65.0).
+    static let fixtureToken = "fixture-token"
+    static let draftId = "6d6d6d6d6d6d6d6d6d6d6d6d6d"
+    static let apiResponses: [String: Response] = [
+        "GET https://sample.example/api/capabilities": Response(status: 200, contentType: "application/json", body: """
+            {"contractVersion":"5.14.0","endpoints":{"publicBase":"https://sample.example","studio":"https://sample.example/studio","api":"https://sample.example/api"},"operations":["createItem"]}
+            """),
+        "POST https://sample.example/api/items": Response(status: 201, contentType: "application/json", body: """
+            {"id":"\(draftId)","revision":1,"kind":"fragment","status":"draft","created":"2026-11-20T21:37:10Z","updated":"2026-11-20T21:37:10Z","version":0,"contentMd":"Hello","dirty":true,"stubOf":null,"forkedFrom":null,"forkCite":null,"provenance":[],"responses":"default","highlight":"default"}
+            """),
+        "POST https://sample.example/api/media": Response(status: 201, contentType: "application/json", body: """
+            {"id":"m1m1m1m1","url":"https://sample.example/media/m1m1m1m1/0000.jpg","mime":"image/jpeg","revision":2}
+            """),
+        "PATCH https://sample.example/api/items/\(draftId)": Response(status: 200, contentType: "application/json", body: """
+            {"id":"\(draftId)","revision":3,"kind":"fragment","status":"draft","created":"2026-11-20T21:37:10Z","updated":"2026-11-20T21:37:12Z","version":0,"contentMd":"Hello","dirty":true,"stubOf":null,"forkedFrom":null,"forkCite":null,"provenance":[],"responses":"default","highlight":"default"}
+            """),
+        "POST https://sample.example/api/items/\(draftId)/publish": Response(status: 200, contentType: "application/json", body: """
+            {"ok":true,"version":1,"revision":4}
+            """),
+    ]
+
+    static func response(for url: URL, method: String = "GET", authorization: String? = nil) -> Response {
+        if url.path().hasPrefix("/api/") {
+            guard authorization == "Bearer \(fixtureToken)" else {
+                return Response(status: 401, contentType: "application/json", body: #"{"code":"unauthorized","message":"unauthorized"}"#)
+            }
+            return apiResponses["\(method) \(url.absoluteString)"]
+                ?? Response(status: 404, contentType: "application/json", body: #"{"code":"not-found","message":"not found"}"#)
+        }
+        return responses[url.absoluteString] ?? Response(status: 404, contentType: "text/plain", body: "Not Found")
     }
 }
 
@@ -114,7 +143,8 @@ nonisolated final class FixtureURLProtocol: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
             return
         }
-        let fixture = Fixtures.response(for: url)
+        let fixture = Fixtures.response(for: url, method: request.httpMethod ?? "GET",
+                                        authorization: request.value(forHTTPHeaderField: "Authorization"))
         let response = HTTPURLResponse(url: url, statusCode: fixture.status, httpVersion: "HTTP/1.1",
                                        headerFields: ["Content-Type": fixture.contentType])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

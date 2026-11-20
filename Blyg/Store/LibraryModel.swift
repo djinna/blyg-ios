@@ -14,10 +14,15 @@ final class LibraryModel {
 
     private let store: LibraryStore?
     private let fetcher: any Fetching
+    private let tokens: any TokenStore
+    private let transport: any HTTPTransport
 
-    init(store: LibraryStore?, fetcher: any Fetching) {
+    init(store: LibraryStore?, fetcher: any Fetching, tokens: any TokenStore = MemoryTokenStore(),
+         transport: any HTTPTransport = URLSessionTransport()) {
         self.store = store
         self.fetcher = fetcher
+        self.tokens = tokens
+        self.transport = transport
         if let store {
             let (library, outcome) = store.load()
             self.library = library
@@ -45,6 +50,7 @@ final class LibraryModel {
     }
 
     func remove(_ origin: URL) {
+        tokens.remove(for: origin)
         library.blygs.removeAll { $0.origin == origin }
         timeline = library.timeline()
         save()
@@ -76,6 +82,65 @@ final class LibraryModel {
         library.blygs[index] = updated
         timeline = library.timeline()
         save()
+    }
+
+    // MARK: Posting
+
+    /// Blygs this phone can post to: connected, with a token still in the Keychain.
+    var postingBlygs: [SavedBlyg] {
+        library.blygs.filter { $0.postingAPI != nil && tokens.token(for: $0.origin) != nil }
+    }
+
+    func isConnected(_ origin: URL) -> Bool { postingBlygs.contains { $0.origin == origin } }
+
+    enum ConnectFailure: Error, Equatable {
+        case empty
+        case rejected
+        case noOwnerAPI(URL)
+        case other(String)
+    }
+
+    /// Checks the token against the blyg's owner API, then saves it to the Keychain.
+    func connect(_ origin: URL, token rawToken: String) async throws(ConnectFailure) {
+        let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else { throw .empty }
+        let api = StudioClient.apiBase(forOrigin: origin)
+        let capabilities: StudioCapabilities
+        do {
+            capabilities = try await StudioClient(api: api, token: token, transport: transport).getCapabilities()
+        } catch let error as StudioError {
+            if error.status == 401 || error.status == 403 { throw .rejected }
+            if error.status == 404 { throw .noOwnerAPI(api) }
+            throw .other(error.message)
+        } catch {
+            throw .other(error.localizedDescription)
+        }
+        let advertised = URL(string: capabilities.endpoints.api) ?? api
+        do { try tokens.save(token, for: origin) } catch { throw .other("Couldn't save the token to the Keychain.") }
+        guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
+        library.blygs[index].postingAPI = advertised
+        save()
+    }
+
+    func disconnect(_ origin: URL) {
+        tokens.remove(for: origin)
+        guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
+        library.blygs[index].postingAPI = nil
+        save()
+    }
+
+    func poster(for origin: URL) -> Poster? {
+        guard let blyg = blyg(origin), let api = blyg.postingAPI, let token = tokens.token(for: origin) else { return nil }
+        return Poster(client: StudioClient(api: api, token: token, transport: transport), origin: origin)
+    }
+
+    static func describe(_ failure: ConnectFailure) -> String {
+        switch failure {
+        case .empty: return "Paste the token first."
+        case .rejected: return "The blyg didn't accept that token. Check you copied all of it, and that it's a REST API token."
+        case .noOwnerAPI(let api): return "There's no Blygger Studio owner API at \(api.absoluteString), so this app can't post to this blyg. You can still read it."
+        case .other(let message): return message
+        }
     }
 
     private func save() {

@@ -14,9 +14,9 @@ struct BlygApp: App {
     static func makeModel() -> LibraryModel {
         #if DEBUG
         if LaunchFlags.has(LaunchFlags.inMemory) {
-            return LibraryModel(store: nil, fetcher: URLSessionFetcher())
+            return LibraryModel(store: nil, fetcher: URLSessionFetcher(), tokens: MemoryTokenStore())
         }
         #endif
-        return LibraryModel(store: .appSupport(), fetcher: URLSessionFetcher())
+        return LibraryModel(store: .appSupport(), fetcher: URLSessionFetcher(), tokens: KeychainTokenStore())
     }
 }

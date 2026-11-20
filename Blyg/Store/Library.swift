@@ -17,6 +17,8 @@ nonisolated struct SavedBlyg: Codable, Sendable, Equatable, Identifiable {
     var lastError: String?
     /// Items by id, scoped to this origin (§13.1 rule 7).
     var items: [String: SavedItem] = [:]
+    /// The owner API this phone can post to, set when the owner connects a token (kept in the Keychain, not here).
+    var postingAPI: URL?
 
     var id: URL { origin }
 

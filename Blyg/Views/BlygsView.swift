@@ -8,8 +8,15 @@ struct BlygsView: View {
     var body: some View {
         List {
             ForEach(model.library.blygs) { blyg in
+                NavigationLink(value: Route.blyg(blyg.origin)) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(blyg.title).font(.headline)
+                    HStack {
+                        Text(blyg.title).font(.headline)
+                        if model.isConnected(blyg.origin) {
+                            Image(systemName: "square.and.pencil").foregroundStyle(.tint)
+                                .accessibilityLabel("You can post here")
+                        }
+                    }
                     Text(blyg.origin.absoluteString)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -19,6 +26,8 @@ struct BlygsView: View {
                         .foregroundStyle(blyg.lastError == nil ? Color.secondary : Color.red)
                 }
                 .padding(.vertical, 2)
+                }
+                .accessibilityIdentifier("blygRow")
                 .swipeActions {
                     Button("Unfollow", role: .destructive) { model.remove(blyg.origin) }
                 }

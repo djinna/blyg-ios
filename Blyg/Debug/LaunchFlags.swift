@@ -14,6 +14,10 @@ nonisolated enum LaunchFlags {
     static let openAdd = "-openAdd"
     /// Open "Your blygs" at launch.
     static let openBlygs = "-openBlygs"
+    /// `-connectToken <token>`: connect the seeded blyg with this token (fixtures only; never a real token).
+    static let connectToken = "-connectToken"
+    /// Open the composer at launch.
+    static let openComposer = "-openComposer"
 
     static func value(after flag: String) -> String? {
         let args = ProcessInfo.processInfo.arguments
