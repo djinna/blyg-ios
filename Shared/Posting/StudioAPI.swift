@@ -61,22 +61,24 @@ nonisolated protocol HTTPTransport: Sendable {
 nonisolated struct URLSessionTransport: HTTPTransport {
     let session: URLSession
 
-    init() {
+    /// Shared by the app and the Share extension; the app passes a configuration that can serve DEBUG fixtures.
+    init(configuration: URLSessionConfiguration = Self.defaultConfiguration()) {
+        session = URLSession(configuration: configuration)
+    }
+
+    static func defaultConfiguration() -> URLSessionConfiguration {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 120
         config.httpShouldSetCookies = false
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(LaunchFlags.useFixtures) {
-            config.protocolClasses = [FixtureURLProtocol.self]
-        }
-        #endif
-        session = URLSession(configuration: config)
+        return config
     }
+
+    struct NotHTTP: Error {}
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw FetchError.notHTTP }
+        guard let http = response as? HTTPURLResponse else { throw NotHTTP() }
         return (data, http)
     }
 }

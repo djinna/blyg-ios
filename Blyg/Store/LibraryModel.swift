@@ -116,8 +116,12 @@ final class LibraryModel {
             throw .other(error.localizedDescription)
         }
         let advertised = URL(string: capabilities.endpoints.api) ?? api
-        do { try tokens.save(token, for: origin) } catch { throw .other("Couldn't save the token to the Keychain.") }
         guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
+        do {
+            try tokens.save(token, for: origin, title: library.blygs[index].title, api: advertised)
+        } catch {
+            throw .other("Couldn't save the token to the Keychain.")
+        }
         library.blygs[index].postingAPI = advertised
         save()
     }

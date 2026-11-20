@@ -1,6 +1,6 @@
 # BUILD
 
-**Status (2026-11-20):** the v0.1 reader is on Jenna's phone. The sandbox blyg is up at https://blyg-sandbox.exe.xyz/. Next: Jenna makes a Client-access token there (plan step 4 ✓), then the composer (step 5).
+**Status (2026-11-20):** reading and posting work on Jenna's phone; her first post from the app reached the sandbox. The Share extension is built and needs trying on the phone (plan step 5 ✓).
 
 ## Versions
 
@@ -31,6 +31,12 @@
   - It has none of the live blyg's extras: no skin proxy, AI key, or poll and update timers. A sandbox needs none of them, and every extra is something else to keep running.
 - **v0.1 signs in with a pasted Client-access token** (it lasts 30 days, with no refresh). OAuth comes in v0.2, once it's confirmed that Studio accepts an iOS app's https redirect. *Beat:* building OAuth first and risking the demo on an unknown.
 - **iPhone only, iOS 18.0 and later.** The minimum is the plan's choice: it lets testers with older iPhones install the app, and the APIs needed (SwiftUI, PhotosUI, AuthenticationServices) all exist on 18. Xcode defaulted to iOS 27.2 and iPhone plus iPad. *Beat:* iPad support, which would need its own layouts. Jenna can still ask for it.
+- **Posting reuses Studio's owner API as Studio's own JS SDK does:**
+  - create a draft, upload the photo attached to it, and add `![alt](media/…)` to the text (the upload alone doesn't put it in the post), then publish;
+  - each step sends the revision the previous one returned.
+
+  Tried on the sandbox with the SDK first (2026-11-20). *Beat:* uploading the photo first. The upload must be attached to an item to be kept.
+- **The Share extension reads connections straight from the shared Keychain.** Each token item also holds its blyg's title and API URL, so there's no App Group and no shared files. *Beat:* an App Group holding the library, which would need an explicit App ID and a capability.
 - **Apple frameworks only;** no OpenAPI code generator, since it's a package. *Beat:* `swift-openapi-generator`.
 - **Third-party network services:** none of our own. The app fetches the blygs the user adds, plus any images or media their posts link to, which can be on other hosts. *Beat:* blocking images from other hosts with a content rule list, which keeps the privacy claim but leaves many posts imageless. The README says this plainly.
 - **Sync from `items/index.json` and item documents, not `feed.xml`.** The spec makes item documents the ground truth and the feed a lossy signal. It also lists each version of an item separately, and must be rolled up by `blyg:id`. The feed is used only to find a manifest. *Beat:* the plan's "read `feed.xml`".

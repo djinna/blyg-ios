@@ -201,6 +201,7 @@ struct ConnectTests {
         #expect(model.blyg(Fixtures.origin)?.postingAPI?.absoluteString == "https://sample.example/api")
         #expect(transport.sent.first?.value(forHTTPHeaderField: "Authorization") == "Bearer secret")
         #expect(model.poster(for: Fixtures.origin) != nil)
+        #expect(tokens.connections() == [Connection(origin: Fixtures.origin, title: "Sample Notes", api: URL(string: "https://sample.example/api")!)])
 
         model.disconnect(Fixtures.origin)
         #expect(tokens.token(for: Fixtures.origin) == nil)
@@ -245,7 +246,11 @@ struct KeychainTests {
         try store.save("second", for: origin)
         #expect(store.token(for: origin) == "second")
         #expect(store.token(for: URL(string: "https://other.example/")!) == nil)
+        try store.save("third", for: origin, title: "My blyg", api: URL(string: "https://x.example/api")!)
+        let mine = store.connections().first { $0.origin == origin }
+        #expect(mine == Connection(origin: origin, title: "My blyg", api: URL(string: "https://x.example/api")!))
         store.remove(for: origin)
         #expect(store.token(for: origin) == nil)
+        #expect(!store.connections().contains { $0.origin == origin })
     }
 }
