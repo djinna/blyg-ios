@@ -231,3 +231,21 @@ struct ConnectTests {
         #expect(tokens.token(for: Fixtures.origin) == nil)
     }
 }
+
+@Suite("Keychain")
+struct KeychainTests {
+    /// Uses the real Keychain with the shared access group, so it fails if the entitlement is missing.
+    @Test func savesReadsReplacesAndRemovesATokenPerOrigin() throws {
+        let store = KeychainTokenStore()
+        let origin = URL(string: "https://keychain-test-\(UUID().uuidString.lowercased()).example/")!
+        defer { store.remove(for: origin) }
+        #expect(store.token(for: origin) == nil)
+        try store.save("first", for: origin)
+        #expect(store.token(for: origin) == "first")
+        try store.save("second", for: origin)
+        #expect(store.token(for: origin) == "second")
+        #expect(store.token(for: URL(string: "https://other.example/")!) == nil)
+        store.remove(for: origin)
+        #expect(store.token(for: origin) == nil)
+    }
+}
