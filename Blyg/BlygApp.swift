@@ -1,17 +1,22 @@
-//
-//  BlygApp.swift
-//  Blyg
-//
-//  Created by Jenna Dixon on 11/20/26.
-//
-
 import SwiftUI
 
 @main
 struct BlygApp: App {
+    @State private var model = BlygApp.makeModel()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .environment(model)
         }
+    }
+
+    static func makeModel() -> LibraryModel {
+        #if DEBUG
+        if LaunchFlags.has(LaunchFlags.inMemory) {
+            return LibraryModel(store: nil, fetcher: URLSessionFetcher())
+        }
+        #endif
+        return LibraryModel(store: .appSupport(), fetcher: URLSessionFetcher())
     }
 }
