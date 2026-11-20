@@ -41,10 +41,17 @@ struct ComposerView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if blygs.count > 1 {
-                    Picker("Post to", selection: $target) {
-                        ForEach(blygs) { blyg in Text(blyg.title).tag(Optional(blyg.origin)) }
+                Section {
+                    if blygs.count > 1 {
+                        Picker("Post to", selection: $target) {
+                            ForEach(blygs) { blyg in Text(blyg.title).tag(Optional(blyg.origin)) }
+                        }
+                        .accessibilityIdentifier("postToPicker")
+                    } else {
+                        LabeledContent("Post to", value: targetTitle ?? "")
                     }
+                } footer: {
+                    if let target { Text(target.absoluteString) }
                 }
                 Section {
                     TextEditor(text: $text)
@@ -67,6 +74,10 @@ struct ComposerView: View {
                     if linkIsInvalid {
                         Text("That isn't a web address.").font(.footnote).foregroundStyle(.red)
                     }
+                    if LinkCheck.fragmentLooksSecret(linkURL) {
+                        Label(LinkCheck.secretWarning, systemImage: "key")
+                            .font(.footnote).foregroundStyle(.orange)
+                    }
                 }
                 Section("Photo") {
                     if let photoPreview {
@@ -87,7 +98,7 @@ struct ComposerView: View {
                     }
                 }
             }
-            .navigationTitle(targetTitle.map { "Post to \($0)" } ?? "New post")
+            .navigationTitle("New post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -116,8 +127,7 @@ struct ComposerView: View {
     }
 
     private var targetTitle: String? {
-        guard blygs.count == 1, let target else { return nil }
-        return model.blyg(target)?.title
+        target.flatMap { model.blyg($0)?.title }
     }
 
     private func label(for step: PostStep) -> String {

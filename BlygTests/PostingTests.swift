@@ -254,3 +254,18 @@ struct KeychainTests {
         #expect(!store.connections().contains { $0.origin == origin })
     }
 }
+
+@Suite("Link check")
+struct LinkCheckTests {
+    @Test(arguments: [
+        ("https://chat.example/c/abc#RNf2yaQlLxzi73nSn4FeMsvIpj7nFXoHnRdDgMWzkSE", true),
+        ("https://draw.example/#json=5550923,Xq3YbN7wPz0LmA4kRt9sVc", true),
+        ("https://example.org/guide#section-2", false),
+        ("https://example.org/docs#configuring-the-reader-on-ios", false),
+        ("https://example.org/page", false),
+        ("https://example.org/#top", false),
+    ])
+    func flagsKeysButNotAnchors(link: String, expected: Bool) {
+        #expect(LinkCheck.fragmentLooksSecret(URL(string: link)) == expected)
+    }
+}

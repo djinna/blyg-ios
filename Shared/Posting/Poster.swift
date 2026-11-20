@@ -24,6 +24,20 @@ nonisolated enum PostFailure: Error, Equatable {
     case transport(String)
 }
 
+nonisolated enum LinkCheck {
+    /// True when a link's #fragment looks like a key rather than a place on the page: long and random-looking.
+    /// End-to-end encrypted invites (chats, drawings, file shares) carry their key there, and posting the link publishes the key.
+    static func fragmentLooksSecret(_ url: URL?) -> Bool {
+        guard let fragment = url?.fragment(percentEncoded: false), fragment.count >= 16 else { return false }
+        let runs = fragment.split(whereSeparator: { !($0.isLetter || $0.isNumber) })
+        return runs.contains { run in
+            run.count >= 16 && run.contains(where: \.isNumber) && run.contains(where: \.isUppercase) && run.contains(where: \.isLowercase)
+        }
+    }
+
+    static let secretWarning = "The part of this link after # looks like a key. Posting it makes it public, and anyone could open what it unlocks."
+}
+
 nonisolated enum PostMarkdown {
     /// The fragment's markdown: the author's text, then the link on its own paragraph.
     static func compose(_ draft: PostDraft) -> String {

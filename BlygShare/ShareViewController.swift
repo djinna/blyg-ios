@@ -158,17 +158,20 @@ struct ShareView: View {
         }
     }
 
-    private var title: String {
-        guard model.connections.count == 1, let only = model.connections.first else { return "Post to blyg" }
-        return "Post to \(only.title)"
-    }
+    private var title: String { "Post to blyg" }
 
     private var form: some View {
         Form {
-            if model.connections.count > 1 {
-                Picker("Post to", selection: $model.target) {
-                    ForEach(model.connections) { Text($0.title).tag(Optional($0.origin)) }
+            Section {
+                if model.connections.count > 1 {
+                    Picker("Post to", selection: $model.target) {
+                        ForEach(model.connections) { Text($0.title).tag(Optional($0.origin)) }
+                    }
+                } else if let only = model.connections.first {
+                    LabeledContent("Post to", value: only.title)
                 }
+            } footer: {
+                if let target = model.target { Text(target.absoluteString) }
             }
             Section {
                 TextEditor(text: $model.text)
@@ -184,6 +187,10 @@ struct ShareView: View {
                     .autocorrectionDisabled()
                 if !model.link.isEmpty {
                     TextField("Link text (optional)", text: $model.linkTitle)
+                }
+                if LinkCheck.fragmentLooksSecret(model.linkURL) {
+                    Label(LinkCheck.secretWarning, systemImage: "key")
+                        .font(.footnote).foregroundStyle(.orange)
                 }
             }
             if let preview = model.photoPreview {
