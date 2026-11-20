@@ -1,0 +1,122 @@
+#if DEBUG
+import Foundation
+
+/// A fictional blyg for tests and screenshots: https://sample.example/ (a reserved domain).
+/// It reproduces the shapes met on live blygs, not their content: URLs with a leading space,
+/// several versions of one item, a thread with a baked quote, a withdrawn item, an unknown kind,
+/// and an index entry that doesn't parse.
+nonisolated enum Fixtures {
+    static let origin = URL(string: "https://sample.example/")!
+
+    static let fragmentEdited = "1f1f1f1f1f1f1f1f1f1f1f1f1f"
+    static let fragmentPlain = "2f2f2f2f2f2f2f2f2f2f2f2f2f"
+    static let thread = "3t3t3t3t3t3t3t3t3t3t3t3t3t"
+    static let withdrawn = "4w4w4w4w4w4w4w4w4w4w4w4w4w"
+    static let unknownKind = "5p5p5p5p5p5p5p5p5p5p5p5p5p"
+
+    struct Response: Sendable {
+        var status: Int
+        var contentType: String
+        var body: String
+    }
+
+    static let manifest = """
+    {"blyg":"0.4","level":2,"generator":"sample-client/1.0","site":" https://sample.example/","title":"Sample Notes",\
+    "author":{"name":"Sam Sample","bio":"A fictional blyg for tests.","links":[]},"feed":"feed.xml",\
+    "items":"items/index.json","updated":"2026-11-19T10:00:00Z","webmention":"webmention"}
+    """
+
+    static let index = """
+    {"updated":"2026-11-19T10:00:00Z","items":[
+    {"id":"\(thread)","kind":"thread","created":"2026-11-19T09:58:00Z","updated":"2026-11-19T10:00:00Z","version":1},
+    {"id":"\(fragmentEdited)","kind":"fragment","created":"2026-11-18T08:00:00Z","updated":"2026-11-18T09:00:00Z","version":2},
+    {"id":"\(withdrawn)","kind":"withdrawn","created":"2026-11-10T08:00:00Z","updated":"2026-11-17T12:00:00Z","version":3},
+    {"id":"\(unknownKind)","kind":"poll","created":"2026-11-16T08:00:00Z","updated":"2026-11-16T08:00:00Z","version":1},
+    {"id":5,"kind":"fragment"},
+    {"id":"\(fragmentPlain)","kind":"fragment","created":"2026-11-15T07:30:00Z","updated":"2026-11-15T07:30:00Z","version":1}
+    ]}
+    """
+
+    static let fragmentEditedDocument = """
+    {"blyg":"0.4","id":"\(fragmentEdited)","kind":"fragment","origin":" https://sample.example/","page":"f/\(fragmentEdited)/",\
+    "author":{"name":"Sam Sample","url":" https://sample.example/","sig":{"alg":"none"}},\
+    "created":"2026-11-18T08:00:00Z","updated":"2026-11-18T09:00:00Z","version":2,\
+    "content_md":"Reading about [print on demand](https://example.org/print) again. Margins matter more than fonts.",\
+    "content_html":"<p>Reading about <a href=\\"https://example.org/print\\">print on demand</a> again. Margins matter more than fonts.</p>\\n<p><img src=\\"https://sample.example/media/spread.png\\" alt=\\"a page spread\\"></p>\\n",\
+    "content_hash":"sha256:0000000000000000000000000000000000000000000000000000000000000000",\
+    "media":[{"url":"media/spread.png","mime":"image/png","alt":"a page spread"}],\
+    "changelog":[{"version":1,"at":"2026-11-18T08:00:00Z","note":null,"pinned":true},{"version":2,"at":"2026-11-18T09:00:00Z","note":"added the link"}]}
+    """
+
+    static let fragmentPlainDocument = """
+    {"blyg":"0.4","id":"\(fragmentPlain)","kind":"fragment","origin":"https://sample.example/","page":"f/\(fragmentPlain)/",\
+    "created":"2026-11-15T07:30:00Z","updated":"2026-11-15T07:30:00Z","version":1,\
+    "content_md":"First post. Does anyone still read RSS & does it matter?",\
+    "content_html":"<p>First post. Does anyone still read RSS &amp; does it matter?</p>\\n",\
+    "content_hash":"sha256:0000000000000000000000000000000000000000000000000000000000000000","media":[],\
+    "changelog":[{"version":1,"at":"2026-11-15T07:30:00Z","note":null}]}
+    """
+
+    static let threadDocument = """
+    {"blyg":"0.4","id":"\(thread)","kind":"thread","origin":"https://sample.example/","page":"t/\(thread)/",\
+    "author":{"name":"Sam Sample"},"created":"2026-11-19T09:58:00Z","updated":"2026-11-19T10:00:00Z","version":1,\
+    "content_md":"Two notes, one thought.\\n\\n![[\(fragmentEdited)]]\\n\\nBoth are about pace.",\
+    "content_html":"<p>Two notes, one thought.</p>\\n<blockquote class=\\"blyg-transclusion\\" data-blyg-id=\\"\(fragmentEdited)\\"><p>Reading about print on demand again. Margins matter more than fonts.</p></blockquote>\\n<p>Both are about pace.</p>\\n",\
+    "content_hash":"sha256:0000000000000000000000000000000000000000000000000000000000000000","media":[],\
+    "transclusions":[{"id":"\(fragmentEdited)","version":2}],\
+    "changelog":[{"version":1,"at":"2026-11-19T10:00:00Z","note":null}]}
+    """
+
+    static let withdrawnDocument = """
+    {"blyg":"0.4","id":"\(withdrawn)","kind":"withdrawn","origin":"https://sample.example/","page":"f/\(withdrawn)/",\
+    "created":"2026-11-10T08:00:00Z","updated":"2026-11-17T12:00:00Z","version":3,"content_md":"","content_html":"",\
+    "content_hash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","media":[],\
+    "changelog":[{"version":1,"at":"2026-11-10T08:00:00Z","note":null},{"version":2,"at":"2026-11-11T08:00:00Z","note":null},{"version":3,"at":"2026-11-17T12:00:00Z","note":"taking this back"}]}
+    """
+
+    static let unknownKindDocument = """
+    {"blyg":"0.4","id":"\(unknownKind)","kind":"poll","origin":"https://sample.example/","created":"2026-11-16T08:00:00Z",\
+    "updated":"2026-11-16T08:00:00Z","version":1,"content_md":"?","content_html":"<p>?</p>","media":[],"changelog":[]}
+    """
+
+    static let feed = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0" xmlns:blyg="https://blygger.org/ns/0.1"><channel><title>Sample Notes</title>
+    <link> https://sample.example/</link><description>A fictional blyg for tests.</description>
+    <blyg:manifest> https://sample.example/blyg.json</blyg:manifest></channel></rss>
+    """
+
+    static let responses: [String: Response] = [
+        "https://sample.example/blyg.json": Response(status: 200, contentType: "application/json", body: manifest),
+        "https://sample.example/feed.xml": Response(status: 200, contentType: "application/rss+xml", body: feed),
+        "https://sample.example/items/index.json": Response(status: 200, contentType: "application/json", body: index),
+        "https://sample.example/items/\(fragmentEdited).json": Response(status: 200, contentType: "application/json", body: fragmentEditedDocument),
+        "https://sample.example/items/\(fragmentPlain).json": Response(status: 200, contentType: "application/json", body: fragmentPlainDocument),
+        "https://sample.example/items/\(thread).json": Response(status: 200, contentType: "application/json", body: threadDocument),
+        "https://sample.example/items/\(withdrawn).json": Response(status: 200, contentType: "application/json", body: withdrawnDocument),
+        "https://sample.example/items/\(unknownKind).json": Response(status: 200, contentType: "application/json", body: unknownKindDocument),
+    ]
+
+    static func response(for url: URL) -> Response {
+        responses[url.absoluteString] ?? Response(status: 404, contentType: "text/plain", body: "Not Found")
+    }
+}
+
+/// Serves `Fixtures` to URLSession when the app runs with `-useFixtures`.
+nonisolated final class FixtureURLProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url else { return }
+        let fixture = Fixtures.response(for: url)
+        let response = HTTPURLResponse(url: url, statusCode: fixture.status, httpVersion: "HTTP/1.1",
+                                       headerFields: ["Content-Type": fixture.contentType])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(fixture.body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+#endif
