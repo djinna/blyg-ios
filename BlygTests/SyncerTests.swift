@@ -117,7 +117,7 @@ struct SyncerTests {
 @Suite("Saving")
 struct StoreTests {
     func tempStore() -> LibraryStore {
-        LibraryStore(directory: FileManager.default.temporaryDirectory.appending(path: "blyg-tests-\(UUID().uuidString)"))
+        LibraryStore(directory: FileManager.default.temporaryDirectory.appending(path: "blyg tests \(UUID().uuidString)"))
     }
 
     @Test func savesAndLoadsAndKeepsABackup() async throws {
@@ -129,7 +129,7 @@ struct StoreTests {
         #expect(store.load().1 == .loaded)
         library.blygs[0].lastError = "x"
         try store.save(library)
-        #expect(FileManager.default.fileExists(atPath: store.backupURL.path()))
+        #expect(FileManager.default.fileExists(atPath: store.backupURL.path(percentEncoded: false)))
     }
 
     @Test func anUnreadableFileIsSetAsideAndTheBackupLoads() throws {
@@ -141,7 +141,7 @@ struct StoreTests {
         let (loaded, outcome) = store.load()
         #expect(outcome == .recoveredFromBackup)
         #expect(loaded == good)
-        let leftovers = try FileManager.default.contentsOfDirectory(atPath: store.directory.path())
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: store.directory.path(percentEncoded: false))
         #expect(leftovers.contains { $0.hasPrefix("library.unreadable-") })
     }
 

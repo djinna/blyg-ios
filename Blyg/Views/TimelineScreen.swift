@@ -106,8 +106,11 @@ struct TimelineRow: View {
                         Color.secondary.opacity(0.1)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: 180)
+                // Crop from the top: a tall screenshot cropped from its middle starts mid-sentence.
+                .frame(maxWidth: .infinity, maxHeight: 180, alignment: .top)
                 .clipShape(.rect(cornerRadius: 8))
+                .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(.quaternary) }
+                .padding(.top, 4)
                 .accessibilityHidden(true)
             }
             if let badges {

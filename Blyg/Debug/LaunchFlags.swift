@@ -12,6 +12,8 @@ nonisolated enum LaunchFlags {
     static let openPost = "-openPost"
     /// Open the add-a-blyg sheet at launch.
     static let openAdd = "-openAdd"
+    /// Open "Your blygs" at launch.
+    static let openBlygs = "-openBlygs"
 
     static func value(after flag: String) -> String? {
         let args = ProcessInfo.processInfo.arguments

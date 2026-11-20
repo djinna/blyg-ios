@@ -37,6 +37,7 @@ struct RootView: View {
             path = [.post(entry)]
             return
         }
+        if LaunchFlags.has(LaunchFlags.openBlygs) { path = [.blygs] }
         #endif
         await model.refreshAll()
     }

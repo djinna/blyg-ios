@@ -20,7 +20,7 @@ nonisolated struct LibraryStore: Sendable {
 
     func load() -> (Library, LoadOutcome) {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: fileURL.path()) else {
+        guard fm.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
             if let backup = decode(backupURL) { return (backup, .recoveredFromBackup) }
             return (Library(), .empty)
         }

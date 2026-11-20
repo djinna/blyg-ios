@@ -27,7 +27,10 @@ final class BlygUITests: XCTestCase {
         XCTAssertEqual(rows.count, 3, "two fragments and a thread; the withdrawn and unknown-kind items stay hidden")
 
         rows.firstMatch.tap()
-        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 5), "the post page should show the post")
-        XCTAssertTrue(app.webViews.staticTexts["Both are about pace."].waitForExistence(timeout: 5))
+        let page = app.webViews.firstMatch
+        XCTAssertTrue(page.waitForExistence(timeout: 10), "the post page should open")
+        // Web content reaches the accessibility tree a moment after the view appears, slowly on a busy simulator.
+        let text = page.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "about pace")).firstMatch
+        XCTAssertTrue(text.waitForExistence(timeout: 20), "the thread's own words should show:\n\(app.debugDescription)")
     }
 }

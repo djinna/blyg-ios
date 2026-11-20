@@ -109,6 +109,11 @@ nonisolated final class FixtureURLProtocol: URLProtocol, @unchecked Sendable {
 
     override func startLoading() {
         guard let url = request.url else { return }
+        // Any other host behaves as if the phone were offline, for the offline-state screenshot.
+        guard url.host() == Fixtures.origin.host() else {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+            return
+        }
         let fixture = Fixtures.response(for: url)
         let response = HTTPURLResponse(url: url, statusCode: fixture.status, httpVersion: "HTTP/1.1",
                                        headerFields: ["Content-Type": fixture.contentType])!
