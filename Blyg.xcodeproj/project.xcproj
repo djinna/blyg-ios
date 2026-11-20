@@ -15,12 +15,27 @@
     { "kind": "folder", "path": "BlygTests", "target-membership": [ "BlygTests" ] },
     { "kind": "folder", "path": "BlygUITests", "target-membership": [ "BlygUITests" ] },
     {
+      "kind": "folder",
+      "path": "BlygShare",
+      "target-membership": [
+        "BlygShare",
+      ],
+      "membership-exceptions": [
+        {
+          "target": "BlygShare",
+          "exclusions": [
+            "Info.plist",
+          ],
+        },
+      ],
+    }, {
       "kind": "group",
       "name": "Products",
       "children": [
         { "path": "<PRODUCTS>/Blyg.app", "id": "69BDBBDE30B0CC060007C4FB", "type": "wrapper.application", "index": false },
         { "path": "<PRODUCTS>/BlygTests.xctest", "id": "69BDBBEB30B0CC070007C4FB", "type": "wrapper.cfbundle", "index": false },
         { "path": "<PRODUCTS>/BlygUITests.xctest", "id": "69BDBBF530B0CC070007C4FB", "type": "wrapper.cfbundle", "index": false },
+        { "path": "<PRODUCTS>/BlygShare.appex", "id": "69884C0530B10CF00011929B", "type": "wrapper.app-extension", "index": false, "target-membership": [ { "build-phase": "Blyg/copy/Embed Foundation Extensions", "header-preservation": "remove-on-copy" } ] },
       ],
     },
   ],
@@ -30,10 +45,18 @@
       "id": "69BDBBDD30B0CC060007C4FB",
       "product": "Products/Blyg.app",
       "product-type": "application",
+      "dependencies": [
+        "BlygShare",
+      ],
       "build-phases": [
         "compile-sources",
         "frameworks",
         "resources",
+        {
+          "kind": "copy",
+          "name": "Embed Foundation Extensions",
+          "bundle-base-path": "plugins-directory",
+        },
       ],
       "build-settings": {
         "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
@@ -124,6 +147,41 @@
         "SWIFT_VERSION": "6.0",
         "TARGETED_DEVICE_FAMILY": "1",
         "TEST_TARGET_NAME": "Blyg",
+      },
+    }, {
+      "name": "BlygShare",
+      "id": "69884C0430B10CF00011929B",
+      "product": "Products/BlygShare.appex",
+      "product-type": "app-extension",
+      "build-phases": [
+        "compile-sources",
+        "frameworks",
+        "resources",
+      ],
+      "build-settings": {
+        "CODE_SIGN_STYLE": "Automatic",
+        "CURRENT_PROJECT_VERSION": "1",
+        "DEVELOPMENT_TEAM": "K24RHPX75P",
+        "GENERATE_INFOPLIST_FILE": "YES",
+        "INFOPLIST_FILE": "BlygShare/Info.plist",
+        "INFOPLIST_KEY_CFBundleDisplayName": "BlygShare",
+        "INFOPLIST_KEY_NSHumanReadableCopyright": "",
+        "IPHONEOS_DEPLOYMENT_TARGET": "27.2",
+        "LD_RUNPATH_SEARCH_PATHS": [
+          "$(inherited)",
+          "@executable_path/Frameworks",
+          "@executable_path/../../Frameworks",
+        ],
+        "MARKETING_VERSION": "1.0",
+        "PRODUCT_BUNDLE_IDENTIFIER": "net.jdbb.blyg.BlygShare",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
+        "SKIP_INSTALL": "YES",
+        "STRING_CATALOG_GENERATE_SYMBOLS": "YES",
+        "SWIFT_APPROACHABLE_CONCURRENCY": "YES",
+        "SWIFT_EMIT_LOC_STRINGS": "YES",
+        "SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY": "YES",
+        "SWIFT_VERSION": "5.0",
+        "TARGETED_DEVICE_FAMILY": "1,2",
       },
     },
   ],
