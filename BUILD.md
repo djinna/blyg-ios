@@ -1,8 +1,17 @@
 # BUILD
 
-**Status (2026-11-20):** the Xcode project exists: the template app builds and its tests pass in the simulator. Next: install it on Jenna's iPhone (plan step 2 ✓), then the reader (step 3).
+**Status (2026-11-20):** v0.1 reader works in the simulator: add a blyg by URL, a timeline across blygs, post pages, a saved copy for offline. 34 unit tests and one UI test pass. Next: Jenna checks the screenshots (plan step 3 ✓), then the sandbox VM (step 4).
 
 ## Versions
+
+### v0.1 reader (2026-11-20)
+- **Adding a blyg:** follows spec 0.4 §12.1 steps 1–5. It accepts an address, a post link, a feed URL or a page with `<link rel="blyg">`, within six fetches. On failure it lists the URLs it tried.
+- **Syncing:** from the archive index, fetching only items whose version changed (6 at a time, 50 per refresh). Withdrawn items drop out, unknown kinds are ignored, and a lower version is treated as a replay. A failed refresh keeps the saved copy and says so.
+- **Screens:**
+  - a timeline across all blygs;
+  - a post page with dates, version history and pins;
+  - "Your blygs", with Unfollow;
+  - empty, loading, error and offline states.
 
 ### v0: plan (2026-11-20)
 - A local plan (`PLAN_2026-11-20.md`, not in git) covers the scope, app design, sandbox VM, distribution, risks and build order.
@@ -21,8 +30,16 @@
 - **v0.1 signs in with a pasted Client-access token** (it lasts 30 days, with no refresh). OAuth comes in v0.2, once it's confirmed that Studio accepts an iOS app's https redirect. *Beat:* building OAuth first and risking the demo on an unknown.
 - **iPhone only, iOS 18.0 and later.** The minimum is the plan's choice: it lets testers with older iPhones install the app, and the APIs needed (SwiftUI, PhotosUI, AuthenticationServices) all exist on 18. Xcode defaulted to iOS 27.2 and iPhone plus iPad. *Beat:* iPad support, which would need its own layouts. Jenna can still ask for it.
 - **Apple frameworks only;** no OpenAPI code generator, since it's a package. *Beat:* `swift-openapi-generator`.
-- **Third-party network services:** none. The app talks only to the blygs the user adds.
+- **Third-party network services:** none of our own. The app fetches the blygs the user adds, plus any images or media their posts link to, which can be on other hosts. *Beat:* blocking images from other hosts with a content rule list, which keeps the privacy claim but leaves many posts imageless. The README says this plainly.
+- **Sync from `items/index.json` and item documents, not `feed.xml`.** The spec makes item documents the ground truth and the feed a lossy signal. It also lists each version of an item separately, and must be rolled up by `blyg:id`. The feed is used only to find a manifest. *Beat:* the plan's "read `feed.xml`".
+- **Never vary behaviour by `generator` or `level`.** Spec §3.2 and §13.1 rule 8 forbid it. Posting will be offered when a blyg's `/api` answers and a token is saved. *Beat:* the plan's "read `generator` and only show Post when `/api` responds".
+- **Identity is the URL the manifest was fetched from, after redirects (§12.2).** It is never taken from the manifest's `site` field. URLs with stray whitespace are trimmed for display and fetching, because live blygs published them; blyg.jdbb.net did until 2026-11-20.
+- **Test data is a made-up blyg (`sample.example`), not copies of real posts.** ios.md says tests never name real people. Also, a copy in a public repo would outlive any post its author later withdrew. *Beat:* the plan's "saved copies of Jenna's public feed".
+- **Post HTML renders in a `WKWebView` with JavaScript, frames and stored cookies off.** A link opens outside the app. The text follows Dynamic Type and dark mode through CSS. *Beat:* converting HTML to an attributed string, which uses WebKit anyway and is slow.
+- **The timeline is ordered by each post's claimed `updated` date, capped at when the app first saw that version** (§13.7), so a future-dated post can't stay on top. *Beat:* trusting the claimed date.
+
 
 ## Lessons
 
-(none yet)
+- **`URL.path()` is percent-encoded.** `FileManager.fileExists(atPath: url.path())` is false for anything under `Application Support`, so the saved library was always read from its backup. Use `path(percentEncoded: false)`, and give test folders a space in their name. Found by the offline-state screenshot, not by the tests.
+- **A web view's text reaches the accessibility tree late on a busy simulator.** The UI test waits 20 s for it.
