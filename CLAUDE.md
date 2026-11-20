@@ -7,7 +7,9 @@
 - **Hackathon:** only commits on `main` count, and merge commits don't, so commit straight to `main`, small and often. Commits count until the end of 2026-11-27 Pacific (03:00 ET 11-28). Author: Jenna's git identity; agent commits add `--trailer "Agent: claude-code" --trailer "Model: <provider>/<model>"`.
 - **Apple:** personal team `K24RHPX75P` only. Bundle ID `net.jdbb.blyg`, fixed for good; extension IDs go under it.
 - **Simulator:** `iPhone 18 Pro`, named (never `booted`). Jenna's phone: see `xcrun devicectl list devices`.
-- **Build and test:** to be filled in once the Xcode project exists. It will be `xcodebuild -scheme Blyg -destination 'platform=iOS Simulator,name=iPhone 18 Pro' -derivedDataPath DerivedData.noindex test`, with logs in `DerivedData.noindex/`, never piped through `head`.
+- **Build and test:** `xcodebuild -scheme Blyg -destination 'platform=iOS Simulator,name=iPhone 18 Pro' -derivedDataPath DerivedData.noindex test > DerivedData.noindex/test.log 2>&1` (unit tests plus UI tests). Never pipe it through `head`.
+- **Project:** `Blyg.xcodeproj/project.xcproj` (Xcode 27's JSON format; Xcode wrote it directly). Targets `Blyg`, `BlygTests` (Swift Testing) and `BlygUITests` (XCTest). New files under those folders join their target automatically. Swift 6, iOS 18.0+, iPhone only. The shared scheme is in `xcshareddata/xcschemes/`. Close the project in Xcode before an agent moves files or edits `project.xcproj`.
+- **Privacy manifest:** `Blyg/PrivacyInfo.xcprivacy`. Add a reason whenever code starts using a required-reason API (UserDefaults, file timestamps and others).
 - **Scripts:** `scripts/phone.sh` installs on the phone. `scripts/testflight.sh` uploads: ask first, and bump `CURRENT_PROJECT_VERSION` in every target, the Share extension included. Not copied in yet.
 - **Ask Jenna before** creating a VM, uploading to TestFlight, adding testers or submitting for review.
 - **Never change the live blyg:** blyg.jdbb.net and its VMs (`jd-blyg`, `jd-blyk` on exe.dev) are read-only from here. The app posts only to the sandbox VM `blyg-sandbox` until Jenna says otherwise.
