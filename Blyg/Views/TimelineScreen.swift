@@ -25,7 +25,7 @@ struct TimelineScreen: View {
 
     @ViewBuilder private var content: some View {
         if model.library.blygs.isEmpty {
-            ContentUnavailableView {
+            ScrollingIfNeeded { ContentUnavailableView {
                 Label("No blygs yet", systemImage: "text.quote")
             } description: {
                 Text("Add a blyg by its address to read it here. Blygs are public, so there's no account to make.")
@@ -33,18 +33,18 @@ struct TimelineScreen: View {
                 Button("Add a blyg") { showingAdd = true }
                     .buttonStyle(.borderedProminent)
                     .accessibilityIdentifier("emptyAddBlygButton")
-            }
+            } }
         } else if model.timeline.isEmpty {
             if model.isRefreshingAny {
                 ProgressView("Loading posts…")
             } else {
-                ContentUnavailableView {
+                ScrollingIfNeeded { ContentUnavailableView {
                     Label("No posts yet", systemImage: "tray")
                 } description: {
                     Text(problemSummary ?? "The blygs you follow haven't published anything yet.")
                 } actions: {
                     Button("Try again") { Task { await model.refreshAll() } }
-                }
+                } }
             }
         } else {
             List {
@@ -127,5 +127,19 @@ struct TimelineRow: View {
         if entry.document.kind == ItemKind.thread.rawValue { parts.append("Thread") }
         if entry.document.version > 1 { parts.append("Edited · version \(entry.document.version)") }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+/// Centres its content, and scrolls it when the largest text sizes make it taller than the screen.
+struct ScrollingIfNeeded<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        GeometryReader { geometry in
+            ScrollView {
+                content.frame(minHeight: geometry.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
     }
 }
