@@ -57,4 +57,33 @@ final class BlygUITests: XCTestCase {
         XCTAssertTrue(compose.waitForExistence(timeout: 10), "the composer closes after posting")
         XCTAssertFalse(app.buttons["postButton"].exists)
     }
+
+    /// Jenna, build 3: one tap switched the look, then further taps did nothing.
+    @MainActor
+    func testAppearanceSwitchesBackAndForth() throws {
+        let app = XCUIApplication()
+        // No "-appearance" launch argument: it would override every change the app saves.
+        app.launchArguments = ["-useFixtures", "-inMemoryLibrary", "-seedBlyg", "sample.example", "-openSettings"]
+        app.launch()
+        let studio = app.buttons["appearance-studio"]
+        let system = app.buttons["appearance-system"]
+        XCTAssertTrue(studio.waitForExistence(timeout: 10))
+        if !studio.isSelected { studio.tap() }
+        XCTAssertTrue(studio.waitForSelected(), "start from Studio")
+        for round in 1...3 {
+            system.tap()
+            XCTAssertTrue(system.waitForSelected(), "round \(round): System should be selected")
+            XCTAssertFalse(studio.isSelected)
+            studio.tap()
+            XCTAssertTrue(studio.waitForSelected(), "round \(round): Studio should be selected")
+            XCTAssertFalse(system.isSelected)
+        }
+    }
+}
+
+extension XCUIElement {
+    func waitForSelected(timeout: TimeInterval = 3) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: self)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
 }

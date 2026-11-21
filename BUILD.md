@@ -76,6 +76,7 @@
 ## Lessons
 
 - **`URL.path()` is percent-encoded.** `FileManager.fileExists(atPath: url.path())` is false for anything under `Application Support`, so the saved library was always read from its backup. Use `path(percentEncoded: false)`, and give test folders a space in their name. Found by the offline-state screenshot, not by the tests.
+- **Two `@AppStorage` properties on the same key misbehaved.** The Settings screen and the root view both read `appearance`. After the first change, Settings stopped redrawing, so further taps looked dead; the value was still being saved. Fix: one reader (`ThemedRoot`) passes the theme down; Settings only writes. Caught by Jenna on build 3; a UI test now switches back and forth.
 - **A web view's text reaches the accessibility tree late on a busy simulator.** The UI test waits 20 s for it.
 - **A development archive doesn't register the bundle IDs.** With no capabilities that need one, automatic signing uses the team's wildcard profile, so App Store Connect's New App form can't find the IDs. An App Store export (`xcodebuild -exportArchive` with `destination` `export`, nothing uploaded) registers them. Afterwards, reload App Store Connect.
 - **Internal TestFlight needs an emailed invitation, even for the account holder.** The tester shows as "Invited", and the app doesn't appear in TestFlight until the email's link or redeem code is used; refreshing TestFlight doesn't help. The external public link has no such step.

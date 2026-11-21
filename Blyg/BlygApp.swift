@@ -3,15 +3,11 @@ import SwiftUI
 @main
 struct BlygApp: App {
     @State private var model = BlygApp.makeModel()
-    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .studio
 
     var body: some Scene {
         WindowGroup {
-            let theme = Theme(appearance: appearance)
-            RootView()
+            ThemedRoot()
                 .environment(model)
-                .environment(\.theme, theme)
-                .tint(theme.pencil)
         }
     }
 
@@ -31,5 +27,18 @@ struct BlygApp: App {
         if LaunchFlags.has(LaunchFlags.useFixtures) { config.protocolClasses = [FixtureURLProtocol.self] }
         #endif
         return URLSessionTransport(configuration: config)
+    }
+}
+
+/// Reads the Appearance setting in a view, not in the App: a change then updates the views below
+/// instead of re-evaluating the whole scene (which left Settings unable to take a second tap).
+struct ThemedRoot: View {
+    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .studio
+
+    var body: some View {
+        let theme = Theme(appearance: appearance)
+        RootView()
+            .environment(\.theme, theme)
+            .tint(theme.pencil)
     }
 }

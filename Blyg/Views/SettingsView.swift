@@ -1,15 +1,20 @@
 import SwiftUI
 
 /// Appearance: Studio or System. Stored in UserDefaults under `appearance` (privacy manifest: CA92.1).
+///
+/// One source of truth: `ThemedRoot` reads the setting and hands the theme down. This screen shows the
+/// theme it's given and only writes the setting. With its own `@AppStorage` reading the same key too, it
+/// stopped redrawing after the first change, so later taps looked dead (Jenna, build 3).
 struct SettingsView: View {
-    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .studio
+    @Environment(\.theme) private var theme
+    private var appearance: Appearance { theme.appearance }
 
     var body: some View {
         Form {
             Section {
                 ForEach(Appearance.allCases) { choice in
                     Button {
-                        appearance = choice
+                        UserDefaults.standard.set(choice.rawValue, forKey: Appearance.storageKey)
                     } label: {
                         HStack(alignment: .top, spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
