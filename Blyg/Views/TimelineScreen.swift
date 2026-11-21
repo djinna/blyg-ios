@@ -2,12 +2,20 @@ import SwiftUI
 
 struct TimelineScreen: View {
     @Environment(LibraryModel.self) private var model
+    @Environment(\.theme) private var theme
     @Binding var showingAdd: Bool
     @Binding var showingComposer: Bool
 
     var body: some View {
         content
             .navigationTitle("Blyg")
+            // With posts showing, the masthead row carries the name, so the bar stays small.
+            .navigationBarTitleDisplayMode(model.timeline.isEmpty ? .large : .inline)
+            .toolbar {
+                if !model.timeline.isEmpty {
+                    ToolbarItem(placement: .principal) { Text(verbatim: "").accessibilityHidden(true) }
+                }
+            }
             .toolbar {
                 if !model.library.blygs.isEmpty {
                     ToolbarItem(placement: .topBarLeading) {
@@ -56,26 +64,64 @@ struct TimelineScreen: View {
             }
         } else {
             List {
+                masthead
                 if model.loadProblem != nil {
-                    Label("Your saved copy couldn't be read, so Blyg loaded its backup.", systemImage: "exclamationmark.triangle")
-                        .font(.footnote)
+                    notice("Your saved copy couldn't be read, so Blyg loaded its backup.", systemImage: "exclamationmark.triangle")
                 }
                 ForEach(model.library.blygs.filter { $0.lastError != nil }) { blyg in
-                    Label("Couldn't refresh \(blyg.title). \(blyg.lastError ?? "") Showing the saved copy.",
-                          systemImage: "wifi.exclamationmark")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    notice("Couldn't refresh \(blyg.title). \(blyg.lastError ?? "") Showing the saved copy.", systemImage: "wifi.exclamationmark")
                 }
                 ForEach(model.timeline) { entry in
                     NavigationLink(value: Route.post(entry)) {
                         TimelineRow(entry: entry)
                     }
                     .accessibilityIdentifier("timelineRow")
+                    .listRowBackground(theme.page)
+                    .listRowSeparatorTint(theme.rule)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 16))
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(theme.page)
             .refreshable { await model.refreshAll() }
         }
+    }
+
+    /// Studio's masthead: the name at display size, then one apparatus line.
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Blyg")
+                .font(theme.masthead)
+                .foregroundStyle(theme.ink)
+                .accessibilityAddTraits(.isHeader)
+            Text(followingLine)
+                .font(theme.apparatus)
+                .foregroundStyle(theme.soft)
+        }
+        .listRowSeparator(.hidden)
+        .listRowBackground(theme.page)
+        .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 12, trailing: 16))
+    }
+
+    private var followingLine: String {
+        let count = model.library.blygs.count
+        var line = count == 1 ? "Following 1 blyg" : "Following \(count) blygs"
+        if model.isRefreshingAny {
+            line += " · updating…"
+        } else if let latest = model.library.blygs.compactMap(\.lastRefresh).max() {
+            line += " · updated \(latest.formatted(.relative(presentation: .named)))"
+        }
+        return line
+    }
+
+    private func notice(_ text: String, systemImage: String) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(theme.apparatus)
+            .foregroundStyle(theme.soft)
+            .listRowBackground(theme.page)
+            .listRowSeparatorTint(theme.rule)
+            .listRowInsets(EdgeInsets(top: 10, leading: 24, bottom: 10, trailing: 16))
     }
 
     private var problemSummary: String? {
@@ -86,24 +132,17 @@ struct TimelineScreen: View {
 
 struct TimelineRow: View {
     let entry: TimelineEntry
+    @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            let header = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
-                                                      : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
-            header {
-                Text(entry.blygTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
-                if !typeSize.isAccessibilitySize { Spacer(minLength: 8) }
-                Text(entry.sortDate, format: .relative(presentation: .named))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            apparatusLine
             if !entry.excerpt.isEmpty {
                 Text(entry.excerpt)
-                    .font(.body)
+                    .font(theme.prose())
+                    .lineSpacing(theme.proseLineSpacing)
+                    .foregroundStyle(theme.ink)
                     .lineLimit(typeSize.isAccessibilitySize ? 12 : 8)
             }
             if let image = entry.imageURL {
@@ -111,30 +150,49 @@ struct TimelineRow: View {
                     if let picture = phase.image {
                         picture.resizable().scaledToFill()
                     } else {
-                        Color.secondary.opacity(0.1)
+                        theme.sunk
                     }
                 }
                 // Crop from the top: a tall screenshot cropped from its middle starts mid-sentence.
                 .frame(maxWidth: .infinity, maxHeight: 180, alignment: .top)
-                .clipShape(.rect(cornerRadius: 8))
-                .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(.quaternary) }
-                .padding(.top, 4)
+                .clipShape(.rect(cornerRadius: 2))
+                .padding(.top, 2)
                 .accessibilityHidden(true)
             }
-            if let badges {
-                Text(badges)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let versionLine {
+                Text(versionLine)
+                    .font(theme.apparatus.italic())
+                    .foregroundStyle(theme.soft)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 18)
     }
 
-    private var badges: String? {
-        var parts: [String] = []
-        if entry.document.kind == ItemKind.thread.rawValue { parts.append("Thread") }
-        if entry.document.version > 1 { parts.append("Edited · version \(entry.document.version)") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    /// The blyg and the date, in the apparatus voice; a thread is marked in the editorial blue.
+    private var apparatusLine: Text {
+        var line = Text("")
+        if entry.document.kind == ItemKind.thread.rawValue {
+            line = Text("THREAD").font(theme.label).tracking(0.6).foregroundStyle(theme.pencil) + Text(" · ")
+        }
+        return (line + Text("\(entry.blygTitle) · \(Self.date(entry.sortDate))"))
+            .font(theme.apparatus)
+            .foregroundStyle(theme.soft)
+    }
+
+    /// "v2 — smol typo": the latest version's note, as Studio shows it.
+    private var versionLine: String? {
+        let document = entry.document
+        guard document.version > 1 else { return nil }
+        let note = document.changelog.first { $0.version == document.version }?.note?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return note.isEmpty ? "v\(document.version)" : "v\(document.version) — \(note)"
+    }
+
+    static func date(_ date: Date, now: Date = .now) -> String {
+        let calendar = Calendar.current
+        if calendar.isDate(date, inSameDayAs: now) { return date.formatted(date: .omitted, time: .shortened) }
+        if calendar.isDate(date, equalTo: now, toGranularity: .year) { return date.formatted(.dateTime.month(.abbreviated).day()) }
+        return date.formatted(.dateTime.month(.abbreviated).day().year())
     }
 }
 

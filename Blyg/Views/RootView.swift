@@ -4,6 +4,7 @@ enum Route: Hashable {
     case post(TimelineEntry)
     case blygs
     case blyg(URL)
+    case settings
 }
 
 struct RootView: View {
@@ -20,6 +21,7 @@ struct RootView: View {
                     case .post(let entry): PostView(entry: entry)
                     case .blygs: BlygsView(showingAdd: $showingAdd)
                     case .blyg(let origin): BlygDetailView(origin: origin)
+                    case .settings: SettingsView()
                     }
                 }
         }
@@ -47,6 +49,7 @@ struct RootView: View {
             return
         }
         if LaunchFlags.has(LaunchFlags.openBlygs) { path = [.blygs] }
+        if LaunchFlags.has(LaunchFlags.openSettings) { path = [.blygs, .settings] }
         #endif
         await model.refreshAll()
     }

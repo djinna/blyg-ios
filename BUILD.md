@@ -52,6 +52,12 @@
 - **The Share extension reads connections straight from the shared Keychain.** Each token item also holds its blyg's title and API URL, so there's no App Group and no shared files. *Beat:* an App Group holding the library, which would need an explicit App ID and a capability.
 - **Apple frameworks only;** no OpenAPI code generator, since it's a package. *Beat:* `swift-openapi-generator`.
 - **Support and privacy pages on GitHub Pages from `docs/`**, not on the VM. They're versioned with the code and need no server; the VM keeps the sandbox blyg and, later, the OAuth files. *Beat:* the plan's pages on the VM.
+- **Two looks, one layout: Studio (default) and System**, chosen in Your blygs → Appearance (2026-11-20).
+  - Studio follows Blygger Studio's own stylesheet: Iowan Old Style for prose, a small sans "apparatus" for metadata, pencil blue (`#23608C`, dark `#8CC0E4`) for editorial marks, hairlines instead of cards.
+  - System is San Francisco and iOS colours, for people who prefer sans on a phone.
+  - Only type and colour change, so each feature is built once. *Beat:* keeping the original stock-list screens as a second layout, which would mean building every feature twice.
+  - The setting lives in UserDefaults (privacy manifest reason CA92.1). The share sheet stays System, since sharing the setting would need an App Group.
+  - Jenna saw a mockup of Studio-native first (claude.ai design canvas); she doesn't love the look but chose to match Blygger's design language.
 - **Third-party network services:** none of our own. The app fetches the blygs the user adds, plus any images or media their posts link to, which can be on other hosts. *Beat:* blocking images from other hosts with a content rule list, which keeps the privacy claim but leaves many posts imageless. The README says this plainly.
 - **Sync from `items/index.json` and item documents, not `feed.xml`.** The spec makes item documents the ground truth and the feed a lossy signal. It also lists each version of an item separately, and must be rolled up by `blyg:id`. The feed is used only to find a manifest. *Beat:* the plan's "read `feed.xml`".
 - **Never vary behaviour by `generator` or `level`.** Spec §3.2 and §13.1 rule 8 forbid it. Posting will be offered when a blyg's `/api` answers and a token is saved. *Beat:* the plan's "read `generator` and only show Post when `/api` responds".

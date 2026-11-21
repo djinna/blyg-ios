@@ -4,14 +4,16 @@ import WebKit
 struct PostView: View {
     let entry: TimelineEntry
     @Environment(\.openURL) private var openURL
+    @Environment(\.theme) private var theme
 
     private var pageURL: URL? { BlygURL.page(for: entry.document, origin: entry.origin) }
 
     var body: some View {
-        PostWebView(html: PostPage.html(for: entry, pageURL: pageURL), baseURL: entry.origin) { url in
+        PostWebView(html: PostPage.html(for: entry, pageURL: pageURL, theme: theme), baseURL: entry.origin) { url in
             openURL(url)
         }
         .accessibilityIdentifier("postWebView")
+        .background(theme.page.ignoresSafeArea())
         .navigationTitle(entry.blygTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -28,43 +30,50 @@ struct PostView: View {
 }
 
 /// Builds the post page. Item HTML is arbitrary, so it's shown in a web view with JavaScript off;
-/// everything this app adds around it is escaped text.
+/// everything this app adds around it is escaped text. Layout follows Studio's item page: the apparatus
+/// (blyg, author, dates) above the post, the version history and permalink below it.
 nonisolated enum PostPage {
-    static func html(for entry: TimelineEntry, pageURL: URL?) -> String {
+    static func html(for entry: TimelineEntry, pageURL: URL?, theme: Theme) -> String {
         let document = entry.document
         let posted = formatted(document.created)
         let updated = formatted(document.updated)
-        var meta: [String] = []
+        var byline: [String] = []
         if let name = document.author?.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
-            meta.append(HTMLText.escape(name))
+            byline.append(HTMLText.escape(name))
         }
-        if let posted { meta.append("Posted \(posted)") }
-        if document.version > 1, let updated, updated != posted { meta.append("updated \(updated)") }
+        if let posted { byline.append(posted) }
+        if document.version > 1, let updated, updated != posted { byline.append("updated \(updated)") }
+        let kind = document.kind == ItemKind.thread.rawValue ? "<span class=\"kind\">Thread</span> · " : ""
 
         var history = ""
         if document.version > 1 || !document.pinnedVersions.isEmpty {
+            let latestNote = document.changelog.first { $0.version == document.version }?.note?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             let rows = document.changelog.sorted { $0.version > $1.version }.map { change -> String in
-                var line = "Version \(change.version)"
+                var line = "v\(change.version)"
                 if let at = formatted(change.at) { line += " · \(at)" }
-                if change.pinned == true { line += " · pinned" }
                 if let note = change.note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
-                    line += "<br><span class=\"note\">\(HTMLText.escape(note))</span>"
+                    line += " — <em>\(HTMLText.escape(note))</em>"
                 }
+                if change.pinned == true { line += " · pinned" }
                 return "<li>\(line)</li>"
             }.joined()
-            // Notes are shown as text only. Older versions aren't linked: only pinned ones are ever served (§8.4).
-            history = "<section class=\"history\"><h2>\(document.version) versions</h2><ul>\(rows)</ul></section>"
+            // Notes are text only. Older versions aren't linked: only pinned ones are ever served (§8.4).
+            let note = latestNote.flatMap { $0.isEmpty ? nil : "<p class=\"note\">\(HTMLText.escape($0))</p>" } ?? ""
+            history = "<section class=\"history\" aria-label=\"Versions\"><p>Version \(document.version) of \(document.version)</p>\(note)<ol>\(rows)</ol></section>"
         }
 
-        let permalink = pageURL.map { "<p class=\"permalink\"><a href=\"\(HTMLText.escape($0.absoluteString))\">Open this post on the web</a></p>" } ?? ""
-        let kind = document.kind == ItemKind.thread.rawValue ? "<span class=\"kind\">Thread</span> " : ""
+        let permalink = pageURL.map { url -> String in
+            let shown = (url.host() ?? "") + url.path()
+            return "<p class=\"permalink\"><a href=\"\(HTMLText.escape(url.absoluteString))\">\(HTMLText.escape(shown))</a></p>"
+        } ?? ""
 
         return """
         <!doctype html><html><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'">
-        <style>\(css)</style></head><body>
-        <header><p class="meta">\(kind)\(meta.joined(separator: " · "))</p></header>
+        <style>\(theme.css)</style></head><body>
+        <header class="apparatus"><p class="blyg">\(kind)\(HTMLText.escape(entry.blygTitle))</p><p>\(byline.joined(separator: " · "))</p></header>
         <article>\(document.contentHTML)</article>
         <footer>\(history)\(permalink)</footer>
         </body></html>
@@ -74,26 +83,6 @@ nonisolated enum PostPage {
     static func formatted(_ timestamp: String?) -> String? {
         BlygDate.parse(timestamp)?.formatted(date: .abbreviated, time: .shortened)
     }
-
-    static let css = """
-    :root { color-scheme: light dark; }
-    html { -webkit-text-size-adjust: 100%; }
-    body { font: -apple-system-body; margin: 16px 20px 40px; line-height: 1.45; overflow-wrap: anywhere; }
-    img, video { max-width: 100%; height: auto; border-radius: 6px; }
-    pre, code { font-family: ui-monospace, monospace; font-size: 0.9em; }
-    pre { white-space: pre-wrap; padding: 10px; border-radius: 6px; background: rgba(127,127,127,0.12); }
-    blockquote { margin: 1em 0; padding: 0.1em 0 0.1em 14px; border-left: 3px solid rgba(127,127,127,0.45); }
-    blockquote.blyg-transclusion { border-left-color: rgba(0,122,255,0.6); }
-    table { border-collapse: collapse; display: block; overflow-x: auto; }
-    td, th { border: 1px solid rgba(127,127,127,0.35); padding: 4px 8px; }
-    .meta, .history, .permalink { font: -apple-system-footnote; color: rgba(127,127,127,1); }
-    .kind { font-weight: 600; }
-    .history h2 { font: -apple-system-headline; margin: 2em 0 0.5em; }
-    .history ul { list-style: none; padding: 0; margin: 0; }
-    .history li { margin: 0 0 0.6em; }
-    .history .note { color: CanvasText; }
-    hr { border: none; border-top: 1px solid rgba(127,127,127,0.35); }
-    """
 }
 
 /// A locked-down web view: no JavaScript, no frames, no stored cookies. Tapping a link hands it to the system.
@@ -113,7 +102,7 @@ struct PostWebView: UIViewRepresentable {
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
         view.isOpaque = false
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .clear
         view.allowsLinkPreview = true
         return view
     }

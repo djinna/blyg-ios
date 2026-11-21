@@ -7,6 +7,7 @@ struct BlygsView: View {
 
     var body: some View {
         List {
+            Section {
             ForEach(model.library.blygs) { blyg in
                 NavigationLink(value: Route.blyg(blyg.origin)) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -31,6 +32,13 @@ struct BlygsView: View {
                 .swipeActions {
                     Button("Unfollow", role: .destructive) { model.remove(blyg.origin) }
                 }
+            }
+            }
+            Section {
+                NavigationLink(value: Route.settings) {
+                    Label("Appearance", systemImage: "textformat")
+                }
+                .accessibilityIdentifier("settingsRow")
             }
         }
         .safeAreaInset(edge: .bottom) {

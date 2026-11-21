@@ -115,3 +115,35 @@ struct HTMLTextTests {
         #expect(HTMLText.escape("<b>\"Tom & Jerry\"</b>") == "&lt;b&gt;&quot;Tom &amp; Jerry&quot;&lt;/b&gt;")
     }
 }
+
+@Suite("Themes")
+struct ThemeTests {
+    @Test func studioUsesStudiosSerifAndPencilBlue() {
+        let css = Theme(appearance: .studio).css
+        #expect(css.contains("\"Iowan Old Style\""))
+        #expect(css.contains("--pencil: #23608c"))
+        #expect(css.contains("--pencil: #8cc0e4")) // dark
+    }
+
+    @Test func systemUsesSanFranciscoOnly() {
+        let css = Theme(appearance: .system).css
+        #expect(!css.contains("Iowan"))
+        #expect(css.contains("font-family: -apple-system, sans-serif; line-height: 1.45"))
+    }
+
+    @Test func postPageEscapesWhatTheAppAddsAndKeepsTheBlygsHTML() throws {
+        var document = try decode(ItemDocument.self, Fixtures.fragmentEditedDocument)
+        document.author = Author(name: "<b>Sam</b>")
+        document.changelog[1].note = "fixed <script>"
+        let entry = TimelineEntry(origin: Fixtures.origin, blygTitle: "Notes & <Things>", document: document,
+                                  sortDate: .now, excerpt: "", imageURL: nil)
+        let html = PostPage.html(for: entry, pageURL: URL(string: "https://sample.example/f/x/"), theme: Theme(appearance: .studio))
+        #expect(html.contains("Notes &amp; &lt;Things&gt;"))
+        #expect(html.contains("&lt;b&gt;Sam&lt;/b&gt;"))
+        #expect(html.contains("<em>fixed &lt;script&gt;</em>"))
+        #expect(html.contains("<a href=\"https://example.org/print\">print on demand</a>")) // the post's own HTML, untouched
+        #expect(html.contains("Version 2 of 2"))
+        #expect(html.contains("v1 · ") && html.contains("· pinned"))
+        #expect(html.contains("script-src 'none'"))
+    }
+}

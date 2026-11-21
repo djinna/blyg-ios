@@ -3,11 +3,15 @@ import SwiftUI
 @main
 struct BlygApp: App {
     @State private var model = BlygApp.makeModel()
+    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .studio
 
     var body: some Scene {
         WindowGroup {
+            let theme = Theme(appearance: appearance)
             RootView()
                 .environment(model)
+                .environment(\.theme, theme)
+                .tint(theme.pencil)
         }
     }
 

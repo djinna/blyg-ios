@@ -4,6 +4,7 @@ import SwiftUI
 /// Write a fragment and publish it to one of your connected blygs.
 struct ComposerView: View {
     @Environment(LibraryModel.self) private var model
+    @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
 
     @State private var target: URL?
@@ -40,65 +41,88 @@ struct ComposerView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    if blygs.count > 1 {
-                        Picker("Post to", selection: $target) {
-                            ForEach(blygs) { blyg in Text(blyg.title).tag(Optional(blyg.origin)) }
-                        }
-                        .accessibilityIdentifier("postToPicker")
-                    } else {
-                        LabeledContent("Post to", value: targetTitle ?? "")
-                    }
-                } footer: {
-                    if let target { Text(target.absoluteString) }
-                }
-                Section {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    targetRow
                     TextEditor(text: $text)
-                        .frame(minHeight: 140)
+                        .font(theme.prose(.title3))
+                        .lineSpacing(theme.proseLineSpacing)
+                        .foregroundStyle(theme.ink)
+                        .scrollContentBackground(.hidden)
+                        .frame(minHeight: 160)
+                        .padding(.horizontal, -5) // TextEditor's own inset; align its text with the labels
                         .focused($textFocused)
                         .accessibilityLabel("Post text")
                         .accessibilityIdentifier("composerText")
-                } footer: {
-                    Text("Markdown. Leave a blank line between paragraphs. \(text.unicodeScalars.count) characters; blygs keep fragments short.")
+                        .overlay(alignment: .topLeading) {
+                            if text.isEmpty {
+                                Text("Write a fragment")
+                                    .font(theme.prose(.title3))
+                                    .foregroundStyle(theme.soft)
+                                    .padding(.top, 8)
+                                    .allowsHitTesting(false)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                    section("Link") {
+                        TextField("https://…", text: $link)
+                            .font(theme.apparatus)
+                            .keyboardType(.URL)
+                            .textContentType(.URL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .frame(minHeight: 44)
+                        if !link.isEmpty {
+                            TextField("Link text (optional)", text: $linkTitle)
+                                .font(theme.prose())
+                                .frame(minHeight: 44)
+                        }
+                        if linkIsInvalid {
+                            Text("That isn't a web address.").font(theme.apparatus).foregroundStyle(.red)
+                        }
+                        if LinkCheck.fragmentLooksSecret(linkURL) {
+                            Label(LinkCheck.secretWarning, systemImage: "key")
+                                .font(theme.apparatus).foregroundStyle(.orange)
+                        }
+                    }
+                    section("Photo") {
+                        if let photoPreview {
+                            photoPreview.resizable().scaledToFit().frame(maxHeight: 220)
+                                .clipShape(.rect(cornerRadius: 2))
+                                .accessibilityHidden(true)
+                            TextField("Describe the photo for people who can't see it", text: $alt, axis: .vertical)
+                                .font(theme.prose().italic())
+                                .frame(minHeight: 44)
+                            Button("Remove photo", role: .destructive) { clearPhoto() }
+                                .font(theme.apparatus)
+                                .frame(minHeight: 44)
+                        }
+                        let pickLabel = photo == nil ? "Add a photo" : "Choose a different photo"
+                        let pickFont = theme.apparatus
+                        PhotosPicker(selection: $photoItem, matching: .images) {
+                            Label(pickLabel, systemImage: "photo")
+                                .font(pickFont)
+                                .frame(minHeight: 44)
+                        }
+                    }
+                    Text("Markdown · leave a blank line between paragraphs · \(text.unicodeScalars.count) characters")
+                        .font(theme.apparatus)
+                        .foregroundStyle(theme.soft)
+                        .padding(.top, 14)
+                    if let error {
+                        Text(error)
+                            .font(theme.apparatus)
+                            .foregroundStyle(.red)
+                            .textSelection(.enabled)
+                            .padding(.top, 14)
+                    }
                 }
-                Section("Link") {
-                    TextField("https://…", text: $link)
-                        .keyboardType(.URL)
-                        .textContentType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    if !link.isEmpty {
-                        TextField("Link text (optional)", text: $linkTitle)
-                    }
-                    if linkIsInvalid {
-                        Text("That isn't a web address.").font(.footnote).foregroundStyle(.red)
-                    }
-                    if LinkCheck.fragmentLooksSecret(linkURL) {
-                        Label(LinkCheck.secretWarning, systemImage: "key")
-                            .font(.footnote).foregroundStyle(.orange)
-                    }
-                }
-                Section("Photo") {
-                    if let photoPreview {
-                        photoPreview.resizable().scaledToFit().frame(maxHeight: 220)
-                            .clipShape(.rect(cornerRadius: 8))
-                            .accessibilityHidden(true)
-                        TextField("Describe the photo for people who can't see it", text: $alt, axis: .vertical)
-                        Button("Remove photo", role: .destructive) { clearPhoto() }
-                    }
-                    let pickLabel = photo == nil ? "Add a photo" : "Choose a different photo"
-                    PhotosPicker(selection: $photoItem, matching: .images) {
-                        Label(pickLabel, systemImage: "photo")
-                    }
-                }
-                if let error {
-                    Section {
-                        Text(error).foregroundStyle(.red).textSelection(.enabled)
-                    }
-                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 32)
             }
-            .navigationTitle("New post")
+            .scrollDismissesKeyboard(.interactively)
+            .background(theme.page)
+            .navigationTitle("New fragment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -112,6 +136,8 @@ struct ComposerView: View {
                         }
                     } else {
                         Button("Post", action: post)
+                            .buttonStyle(.borderedProminent)
+                            .buttonBorderShape(.capsule)
                             .disabled(draft.isEmpty || linkIsInvalid || target == nil)
                             .accessibilityIdentifier("postButton")
                     }
@@ -124,6 +150,48 @@ struct ComposerView: View {
             }
             .onChange(of: photoItem) { _, item in loadPhoto(item) }
         }
+    }
+
+    /// "To [blyg]": a menu when more than one blyg is connected.
+    private var targetRow: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("To").font(theme.apparatus).foregroundStyle(theme.soft)
+            if blygs.count > 1 {
+                Picker("Post to", selection: $target) {
+                    ForEach(blygs) { blyg in Text(blyg.title).tag(Optional(blyg.origin)) }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .padding(.leading, -12) // the menu button's own inset; align with "To"
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("postToPicker")
+            } else {
+                Text(targetTitle ?? "")
+                    .font(.subheadline)
+                    .foregroundStyle(theme.pencil)
+                    .frame(minHeight: 44)
+            }
+            if let target {
+                Text(target.absoluteString).font(theme.apparatus).foregroundStyle(theme.soft)
+            }
+        }
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    /// A Studio-style section: a hairline, a small label in the editorial blue, then the fields.
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(theme.label)
+                .tracking(0.6)
+                .foregroundStyle(theme.pencil)
+                .accessibilityAddTraits(.isHeader)
+            content()
+        }
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { theme.rule.frame(height: 1) }
     }
 
     private var targetTitle: String? {

@@ -11,6 +11,16 @@
 	<array/>
 	<!-- Add a reason here whenever the app starts using a required-reason API (UserDefaults: CA92.1, file timestamps: C617.1). -->
 	<key>NSPrivacyAccessedAPITypes</key>
-	<array/>
+	<array>
+		<!-- The Appearance setting (Studio or System) is kept in this app's own UserDefaults. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
