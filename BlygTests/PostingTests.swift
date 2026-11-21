@@ -243,6 +243,8 @@ struct KeychainTests {
         #expect(store.token(for: origin) == nil)
         try store.save("first", for: origin)
         #expect(store.token(for: origin) == "first")
+        // Saved in the group the Share extension shares, whatever team built the app.
+        #expect(store.accessGroup(for: origin)?.hasSuffix(".net.jdbb.blyg.shared") == true)
         try store.save("second", for: origin)
         #expect(store.token(for: origin) == "second")
         #expect(store.token(for: URL(string: "https://other.example/")!) == nil)

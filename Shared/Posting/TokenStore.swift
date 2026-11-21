@@ -28,17 +28,19 @@ nonisolated enum TokenStoreError: Error, Equatable {
     case keychain(OSStatus)
 }
 
-/// The Keychain, in an access group the Share extension can also read.
+/// The Keychain, in the access group the Share extension can also read.
+///
+/// No access group is named here on purpose. A new item goes into the app's default group, which is the first
+/// entry of `keychain-access-groups` in Blyg.entitlements and BlygShare.entitlements: `$(AppIdentifierPrefix)net.jdbb.blyg.shared`,
+/// shared by both. Lookups search every group the target may use. So the code works under whichever team builds it;
+/// naming the group would hard-code one team's ID.
 nonisolated struct KeychainTokenStore: TokenStore {
     static let service = "net.jdbb.blyg.studio-token"
-    /// Must match `keychain-access-groups` in Blyg.entitlements ($(AppIdentifierPrefix) is the team ID plus a dot).
-    static let accessGroup = "K24RHPX75P.net.jdbb.blyg.shared"
 
     private func query(_ origin: URL?) -> [String: Any] {
         var q: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
-            kSecAttrAccessGroup as String: Self.accessGroup,
             kSecUseDataProtectionKeychain as String: true,
         ]
         if let origin { q[kSecAttrAccount as String] = origin.absoluteString }
@@ -72,6 +74,17 @@ nonisolated struct KeychainTokenStore: TokenStore {
 
     func remove(for origin: URL) {
         SecItemDelete(query(origin) as CFDictionary)
+    }
+
+    /// The access group an item was saved in (for tests: it must be the group the Share extension shares).
+    func accessGroup(for origin: URL) -> String? {
+        var q = query(origin)
+        q[kSecReturnAttributes as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: AnyObject?
+        guard SecItemCopyMatching(q as CFDictionary, &result) == errSecSuccess,
+              let attributes = result as? [String: Any] else { return nil }
+        return attributes[kSecAttrAccessGroup as String] as? String
     }
 
     func connections() -> [Connection] {
