@@ -1,8 +1,14 @@
 # BUILD
 
-**Status (2026-11-20):** v0.1 build 2 uploaded (commit 7c4ce55). Build 1 is installed through internal TestFlight on Jenna's phone and posts fine. Next: Jenna fills in Test Information, makes the external group "Hackathon" and submits build 2 for Beta App Review (plan step 7); the public link is shared on Discord once it's approved.
+**Status (2026-11-20):** build 2 (7c4ce55) is in Beta App Review for the external group "PI Blyg Hackathon 2026". Build 3 (b854af5, the Studio and System looks) is uploaded for internal testing on Jenna's phone. Once she has tried it, decide whether build 3 replaces build 2 for the group.
 
 ## Versions
+
+### v0.1, build 3: the Studio and System looks (2026-11-20)
+- Restyled to Blygger Studio's design language, with San Francisco as an option (see Decisions).
+- **Composer:** a page, not a form.
+- **Post page:** metadata above the post, versions below it.
+- Uploaded for internal testing while build 2 is in review.
 
 ### v0.1, build 2: for Beta App Review (2026-11-20)
 - **In-app links:** Help and Privacy, at the bottom of Your blygs.
