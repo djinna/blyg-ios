@@ -1,8 +1,13 @@
 # BUILD
 
-**Status (2026-11-20):** version 0.1 (build 1) uploaded to TestFlight from commit 9bc7c4b. Next: Jenna installs it from TestFlight and uses it for a day (plan step 6 ✓); then the public pages and the external group (step 7).
+**Status (2026-11-20):** v0.1 build 2 uploaded (commit 7c4ce55). Build 1 is installed through internal TestFlight on Jenna's phone and posts fine. Next: Jenna fills in Test Information, makes the external group "Hackathon" and submits build 2 for Beta App Review (plan step 7); the public link is shared on Discord once it's approved.
 
 ## Versions
+
+### v0.1, build 2: for Beta App Review (2026-11-20)
+- **In-app links:** Help and Privacy, at the bottom of Your blygs.
+- **Public pages:** support and privacy on GitHub Pages (https://djinna.github.io/blyg-ios/), written from an audit of the code.
+- **App Review demo:** the review notes carry a 30-day sandbox token made for App Review. It's never in the binary or the repo.
 
 ### v0.1, build 1: first TestFlight upload (2026-11-20)
 - **Posting:** connect a blyg with a pasted Client-access token, then post text, a link and a photo.
@@ -46,6 +51,7 @@
   Tried on the sandbox with the SDK first (2026-11-20). *Beat:* uploading the photo first. The upload must be attached to an item to be kept.
 - **The Share extension reads connections straight from the shared Keychain.** Each token item also holds its blyg's title and API URL, so there's no App Group and no shared files. *Beat:* an App Group holding the library, which would need an explicit App ID and a capability.
 - **Apple frameworks only;** no OpenAPI code generator, since it's a package. *Beat:* `swift-openapi-generator`.
+- **Support and privacy pages on GitHub Pages from `docs/`**, not on the VM. They're versioned with the code and need no server; the VM keeps the sandbox blyg and, later, the OAuth files. *Beat:* the plan's pages on the VM.
 - **Third-party network services:** none of our own. The app fetches the blygs the user adds, plus any images or media their posts link to, which can be on other hosts. *Beat:* blocking images from other hosts with a content rule list, which keeps the privacy claim but leaves many posts imageless. The README says this plainly.
 - **Sync from `items/index.json` and item documents, not `feed.xml`.** The spec makes item documents the ground truth and the feed a lossy signal. It also lists each version of an item separately, and must be rolled up by `blyg:id`. The feed is used only to find a manifest. *Beat:* the plan's "read `feed.xml`".
 - **Never vary behaviour by `generator` or `level`.** Spec §3.2 and §13.1 rule 8 forbid it. Posting will be offered when a blyg's `/api` answers and a token is saved. *Beat:* the plan's "read `generator` and only show Post when `/api` responds".
