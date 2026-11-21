@@ -1,8 +1,15 @@
 # BUILD
 
-**Status (2026-11-20):** build 2 (7c4ce55) is in Beta App Review for the external group "PI Blyg Hackathon 2026". Build 3 (b854af5, the Studio and System looks) is uploaded for internal testing on Jenna's phone. Once she has tried it, decide whether build 3 replaces build 2 for the group.
+**Status (2026-11-20):** build 2 (7c4ce55) is in Beta App Review for the external group "PI Blyg Hackathon 2026". Build 5 (f7ee126) is uploaded for internal testing: the Studio and System looks, the Appearance fix and the forkable Keychain group. To check on Jenna's phone: switching the look back and forth, and posting with an existing connection.
 
 ## Versions
+
+### v0.1, builds 4 and 5: forkable, and the Appearance fix (2026-11-20)
+- **Build 4 (d9a040e):**
+  - no team ID in code (the Keychain group comes from the entitlements);
+  - `scripts/use-my-team.sh`;
+  - build instructions in the README.
+- **Build 5 (f7ee126):** Appearance can be switched more than once.
 
 ### v0.1, build 3: the Studio and System looks (2026-11-20)
 - Restyled to Blygger Studio's design language, with San Francisco as an option (see Decisions).
