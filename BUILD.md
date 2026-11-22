@@ -1,6 +1,6 @@
 # BUILD
 
-**Status (2026-11-22):** build 2 passed Beta App Review; the public link has its first tester. Jenna is adding build 5 to the group. Build 6 (replies, bottom post bar, follow your Studio's blygs) is ready to upload.
+**Status (2026-11-22):** build 2 passed Beta App Review; the public link has its first tester. Jenna is adding build 5 to the group. Build 6 (545f5bd: replies, bottom post bar, follow your Studio's blygs) is uploaded. Next: Jenna sends a first reply from the app, sandbox to sandbox, then adds build 6 to the group.
 
 ## Versions
 
