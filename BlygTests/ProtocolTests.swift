@@ -156,7 +156,7 @@ struct HTMLTextTests {
         var blyg = SavedBlyg(origin: URL(string: "https://sample.example/")!, manifest: Manifest(blyg: "0.4"), addedAt: .now)
         blyg.items[doc.id] = SavedItem(id: doc.id, kind: doc.kind, version: doc.version, versionSeenAt: .now, document: doc)
         let row = try #require(Library(blygs: [blyg]).timeline().first)
-        #expect(row.excerpt == "Two notes, one thought.\nBoth are about pace.")
+        #expect(row.excerpt.hasPrefix("Two notes, one thought.\nBoth are about pace.\nElsewhere someone"))
         #expect(row.quoteCount == 1)
     }
 }
@@ -190,5 +190,84 @@ struct ThemeTests {
         #expect(html.contains("Version 2 of 2"))
         #expect(html.contains("v1 · ") && html.contains("· pinned"))
         #expect(html.contains("script-src 'none'"))
+    }
+}
+
+@Suite("Quote cards") @MainActor
+struct LinkedPostTests {
+    let origin = Fixtures.origin
+
+    @Test func onlyLinksShapedLikeBlygPostsAreCandidates() throws {
+        let thread = try decode(ItemDocument.self, Fixtures.threadDocument)
+        let found = LinkedPosts.candidates(in: thread, origin: origin)
+        // Not example.org (an ordinary site), not the quoted post's own link, not the post it replies to.
+        #expect(found.map(\.id) == [Fixtures.elsewherePost, Fixtures.withdrawn])
+        #expect(found.first?.origin == Fixtures.elsewhereOrigin)
+    }
+
+    @Test func linksEntriesAreScopedToTheirOrigin() {
+        let doc = ItemDocument(id: "me", kind: "fragment", version: 1, created: "", updated: "",
+                               contentHTML: "<p><a href=\"f/me/\">myself</a></p>",
+                               links: [.init(id: "x1", origin: nil), .init(id: "x2", origin: "https://other.example/")])
+        let found = LinkedPosts.candidates(in: doc, origin: origin)
+        #expect(found.map { "\($0.origin.absoluteString)\($0.id)" } == ["https://sample.example/x1", "https://other.example/x2"])
+    }
+
+    @Test func itemPagesAreRecognisedAtAnyMount() throws {
+        let (mount, id) = try #require(LinkedPosts.itemPage(URL(string: "https://host.example/a/b/t/abc123/?x=1#y")!))
+        #expect(mount.absoluteString == "https://host.example/a/b/")
+        #expect(id == "abc123")
+        #expect(LinkedPosts.itemPage(URL(string: "https://host.example/about/")!) == nil)
+        #expect(LinkedPosts.itemPage(URL(string: "mailto:f/x/")!) == nil)
+        #expect(LinkedPosts.samePage(URL(string: "https://HOST.example/f/a")!, URL(string: "https://host.example/f/a/#top")!))
+    }
+
+    @Test func aCardFromABlygYouDontFollowTakesTwoFetches() async throws {
+        let fetcher = FakeFetcher.sample()
+        let card = try #require(await LinkedPostLoader(fetcher: fetcher).load(
+            .init(origin: Fixtures.elsewhereOrigin, id: Fixtures.elsewherePost,
+                  href: URL(string: "https://elsewhere.example/blyg/f/\(Fixtures.elsewherePost)/"))))
+        #expect(card.blygTitle == "Elsewhere Journal")
+        #expect(card.author == "Eli Elsewhere")
+        #expect(card.excerpt == "Slow is a feature. A feed you can finish is a feed you can trust.")
+        #expect(card.link.absoluteString == "https://elsewhere.example/blyg/f/\(Fixtures.elsewherePost)/")
+        #expect(fetcher.requested.count == 2)
+    }
+
+    @Test func aGuessedAddressMustBeThePostsRealPage() async {
+        let fetcher = FakeFetcher.sample()
+        // The id is real, but the post's page is f/…, not t/…: not believed.
+        let card = await LinkedPostLoader(fetcher: fetcher).load(
+            .init(origin: Fixtures.elsewhereOrigin, id: Fixtures.elsewherePost,
+                  href: URL(string: "https://elsewhere.example/blyg/t/\(Fixtures.elsewherePost)/")))
+        #expect(card == nil)
+        #expect(await LinkedPostLoader(fetcher: fetcher).load(.init(origin: URL(string: "https://nothing.example/")!, id: "x")) == nil)
+    }
+
+    @Test func savedPostsNeedNoFetchAndWithdrawnOnesSaySo() async throws {
+        let fetcher = FakeFetcher.sample()
+        let model = LibraryModel(store: nil, fetcher: fetcher)
+        try await model.add("sample.example")
+        let thread = try #require(model.timeline.first { $0.document.id == Fixtures.thread })
+        let saved = model.savedLinkedPosts(for: thread.document, origin: origin)
+        #expect(saved.map(\.itemID) == [Fixtures.withdrawn])
+        #expect(saved.first?.withdrawn == true)
+        let before = fetcher.requestCount
+        let all = await model.linkedPosts(for: thread.document, origin: origin)
+        #expect(all.map(\.itemID) == [Fixtures.elsewherePost, Fixtures.withdrawn])
+        #expect(fetcher.requestCount == before + 2)
+        _ = await model.linkedPosts(for: thread.document, origin: origin) // cached for the session
+        #expect(fetcher.requestCount == before + 2)
+        let html = PostPage.cards(all)
+        #expect(html.contains("Elsewhere Journal · Eli Elsewhere"))
+        #expect(html.contains("Withdrawn by its author."))
+        #expect(!html.contains("<img"))
+    }
+
+    @Test func aLinkToAFollowedPostOpensInTheApp() async throws {
+        let model = LibraryModel(store: nil, fetcher: FakeFetcher.sample())
+        try await model.add("sample.example")
+        #expect(model.entry(forPage: URL(string: "https://sample.example/f/\(Fixtures.fragmentPlain)/")!)?.document.id == Fixtures.fragmentPlain)
+        #expect(model.entry(forPage: URL(string: "https://elsewhere.example/blyg/f/\(Fixtures.elsewherePost)/")!) == nil)
     }
 }

@@ -4,7 +4,8 @@ import Foundation
 /// A fictional blyg for tests and screenshots: https://sample.example/ (a reserved domain).
 /// It reproduces the shapes met on live blygs, not their content: URLs with a leading space,
 /// several versions of one item, a thread with a baked quote, a withdrawn item, an unknown kind,
-/// and an index entry that doesn't parse.
+/// and an index entry that doesn't parse. A second, unfollowed blyg at https://elsewhere.example/blyg/ (path-mounted)
+/// holds one post the thread links to, for quote cards.
 nonisolated enum Fixtures {
     static let origin = URL(string: "https://sample.example/")!
 
@@ -13,6 +14,9 @@ nonisolated enum Fixtures {
     static let thread = "3t3t3t3t3t3t3t3t3t3t3t3t3t"
     static let withdrawn = "4w4w4w4w4w4w4w4w4w4w4w4w4w"
     static let unknownKind = "5p5p5p5p5p5p5p5p5p5p5p5p5p"
+    static let elsewhereOrigin = URL(string: "https://elsewhere.example/blyg/")!
+    static let elsewherePost = "7e7e7e7e7e7e7e7e7e7e7e7e7e"
+    static let hosts: Set<String> = ["sample.example", "elsewhere.example"]
 
     struct Response: Sendable {
         var status: Int
@@ -61,7 +65,7 @@ nonisolated enum Fixtures {
     {"blyg":"0.4","id":"\(thread)","kind":"thread","origin":"https://sample.example/","page":"t/\(thread)/",\
     "author":{"name":"Sam Sample"},"created":"2026-11-19T09:58:00Z","updated":"2026-11-19T10:00:00Z","version":1,\
     "content_md":"Two notes, one thought.\\n\\n![[\(fragmentEdited)]]\\n\\nBoth are about pace.",\
-    "content_html":"<p>Two notes, one thought.</p>\\n<blockquote class=\\"blyg-transclusion\\" data-blyg-id=\\"\(fragmentEdited)\\"><p>Reading about print on demand again. Margins matter more than fonts.</p></blockquote>\\n<p>Both are about pace.</p>\\n",\
+    "content_html":"<p>Two notes, one thought.</p>\\n<blockquote class=\\"blyg-transclusion\\" data-blyg-id=\\"\(fragmentEdited)\\"><p>Reading about print on demand again. Margins matter more than fonts.</p></blockquote>\\n<p>Both are about pace.</p>\\n<p>Elsewhere <a href=\\"https://elsewhere.example/blyg/f/\(elsewherePost)/\\">someone</a> said so too, and <a href=\\"https://sample.example/f/\(withdrawn)/\\">I took back</a> what I said <a href=\\"https://example.org/pace\\">here</a>.</p>\\n",\
     "content_hash":"sha256:0000000000000000000000000000000000000000000000000000000000000000","media":[],\
     "transclusions":[{"id":"\(fragmentEdited)","version":2}],\
     "stub_of":{"origin":"https://sample.example/","id":"\(fragmentPlain)","version":1,"cited":{"source":"Sample Notes","excerpt":"First post. Does anyone still read RSS & does it matter?","retrieved":"2026-11-19T09:58:00Z"}},\
@@ -87,7 +91,20 @@ nonisolated enum Fixtures {
     <blyg:manifest> https://sample.example/blyg.json</blyg:manifest></channel></rss>
     """
 
+    static let elsewhereManifest = """
+    {"blyg":"0.4","title":"Elsewhere Journal","author":{"name":"Eli Elsewhere"},"items":"items/index.json"}
+    """
+
+    static let elsewhereDocument = """
+    {"blyg":"0.4","id":"\(elsewherePost)","kind":"fragment","origin":"https://elsewhere.example/blyg/","page":"f/\(elsewherePost)/",\
+    "author":{"name":"Eli Elsewhere"},"created":"2026-11-17T14:00:00Z","updated":"2026-11-17T14:00:00Z","version":1,\
+    "content_md":"Slow is a feature.","content_html":"<p>Slow is a feature. A feed you can finish is a feed you can trust.</p><p><img src=\\"media/x.png\\"></p>",\
+    "media":[],"changelog":[{"version":1,"at":"2026-11-17T14:00:00Z","note":null}]}
+    """
+
     static let responses: [String: Response] = [
+        "https://elsewhere.example/blyg/blyg.json": Response(status: 200, contentType: "application/json", body: elsewhereManifest),
+        "https://elsewhere.example/blyg/items/\(elsewherePost).json": Response(status: 200, contentType: "application/json", body: elsewhereDocument),
         "https://sample.example/blyg.json": Response(status: 200, contentType: "application/json", body: manifest),
         "https://sample.example/feed.xml": Response(status: 200, contentType: "application/rss+xml", body: feed),
         "https://sample.example/items/index.json": Response(status: 200, contentType: "application/json", body: index),
@@ -140,7 +157,7 @@ nonisolated final class FixtureURLProtocol: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         guard let url = request.url else { return }
         // Any other host behaves as if the phone were offline, for the offline-state screenshot.
-        guard url.host() == Fixtures.origin.host() else {
+        guard let host = url.host(), Fixtures.hosts.contains(host) else {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
             return
         }

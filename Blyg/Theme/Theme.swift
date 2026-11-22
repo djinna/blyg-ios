@@ -122,6 +122,13 @@ nonisolated struct Theme: Sendable {
         blockquote.blyg-transclusion { border-left-color: var(--pencil); }
         .quote-source { font: -apple-system-footnote; font-family: \(fonts.apparatus); color: var(--soft); margin: -0.5em 0 1.2em 1.1em; }
         .quote-source a { color: var(--soft); }
+        .linked { margin: 1.6em 0 0; }
+        .linked-label { font: -apple-system-caption1; font-family: \(fonts.apparatus); color: var(--pencil); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 0.5em; }
+        .card { display: block; color: var(--ink); text-decoration: none; border: 1px solid var(--rule); border-left: 2px solid var(--pencil);
+          border-radius: 2px; padding: 0.6em 0.8em; margin: 0 0 0.7em; }
+        .card-meta { display: block; font: -apple-system-footnote; font-family: \(fonts.apparatus); color: var(--soft); }
+        .card-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; white-space: pre-line; margin-top: 0.25em; }
+        .card-text.gone { font-style: italic; color: var(--soft); }
         table { border-collapse: collapse; display: block; overflow-x: auto; }
         td, th { border: 1px solid var(--rule); padding: 4px 8px; }
         hr { border: none; border-top: 1px solid var(--rule); }

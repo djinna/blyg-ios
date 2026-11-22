@@ -27,6 +27,12 @@ struct RootView: View {
                     }
                 }
         }
+        // A link to a post on a blyg you follow opens here, not in Safari.
+        .environment(\.openURL, OpenURLAction { url in
+            guard let entry = model.entry(forPage: url) else { return .systemAction }
+            path.append(.post(entry))
+            return .handled
+        })
         .sheet(isPresented: $showingAdd) {
             AddBlygView()
         }

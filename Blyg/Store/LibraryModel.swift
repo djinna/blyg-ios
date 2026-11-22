@@ -99,6 +99,67 @@ final class LibraryModel {
         save()
     }
 
+    // MARK: Quote cards
+
+    /// Cards fetched this session, by origin#id. Only successes are kept, so a failure is retried next time.
+    @ObservationIgnored private var linkedCache: [String: LinkedPost] = [:]
+
+    /// The cards that can be drawn now, from what's saved and fetched before: no network.
+    func savedLinkedPosts(for document: ItemDocument, origin: URL) -> [LinkedPost] {
+        LinkedPosts.candidates(in: document, origin: origin).compactMap { savedLinkedPost($0) ?? nil }
+    }
+
+    /// Every card, fetching from blygs this phone doesn't hold (two small JSON files each, see `LinkedPostLoader`).
+    func linkedPosts(for document: ItemDocument, origin: URL) async -> [LinkedPost] {
+        let candidates = LinkedPosts.candidates(in: document, origin: origin)
+        var results: [LinkedPost?] = candidates.map { savedLinkedPost($0) ?? nil }
+        let missing = candidates.indices.filter { savedLinkedPost(candidates[$0]) == nil }
+        guard !missing.isEmpty else { return results.compactMap { $0 } }
+        let loader = LinkedPostLoader(fetcher: fetcher)
+        let fetched = await withTaskGroup(of: (Int, LinkedPost?).self) { group in
+            for index in missing {
+                let candidate = candidates[index]
+                group.addTask { (index, await loader.load(candidate)) }
+            }
+            var out: [(Int, LinkedPost?)] = []
+            for await result in group { out.append(result) }
+            return out
+        }
+        for (index, post) in fetched {
+            results[index] = post
+            if let post { linkedCache[Self.cacheKey(candidates[index])] = post }
+        }
+        return results.compactMap { $0 }
+    }
+
+    /// `.some(card)` or `.some(nil)` (known not to be a card) when the answer is already here; nil when it needs a fetch.
+    private func savedLinkedPost(_ candidate: LinkedPosts.Candidate) -> LinkedPost?? {
+        if let cached = linkedCache[Self.cacheKey(candidate)] { return .some(cached) }
+        guard let blyg = blyg(candidate.origin), let item = blyg.items[candidate.id] else { return nil }
+        let fallback = candidate.href ?? BlygURL.resolve("f/\(candidate.id)/", against: candidate.origin) ?? candidate.origin
+        if item.kind == ItemKind.withdrawn.rawValue {
+            return .some(LinkedPost.from(nil, id: candidate.id, origin: candidate.origin, blygTitle: blyg.title, fallbackLink: fallback))
+        }
+        guard item.isShowable, let document = item.document else { return nil }
+        if let href = candidate.href {
+            guard let page = BlygURL.page(for: document, origin: candidate.origin), LinkedPosts.samePage(page, href) else { return .some(nil) }
+        }
+        return .some(LinkedPost.from(document, id: candidate.id, origin: candidate.origin, blygTitle: blyg.title, fallbackLink: fallback))
+    }
+
+    private static func cacheKey(_ candidate: LinkedPosts.Candidate) -> String {
+        candidate.origin.absoluteString + "#" + candidate.id
+    }
+
+    /// The saved post a link points to, so links to posts on blygs you follow open in the app.
+    func entry(forPage url: URL) -> TimelineEntry? {
+        guard let (origin, id) = LinkedPosts.itemPage(url) else { return nil }
+        return timeline.first { entry in
+            entry.origin == origin && entry.document.id == id
+                && BlygURL.page(for: entry.document, origin: origin).map { LinkedPosts.samePage($0, url) } == true
+        }
+    }
+
     // MARK: Posting
 
     /// Blygs this phone can post to: connected, with a token still in the Keychain.

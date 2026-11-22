@@ -5,7 +5,7 @@ An iPhone app for [Blygger](https://blygger.org): read the blygs you follow, and
 Built during the Blygger hackathon (2026-11-20 to 11-27). Work in progress: reading, posting and the Share extension work; testing on TestFlight. See `BUILD.md` for status and decisions.
 
 - SwiftUI, Swift 6, iOS 18+, Apple frameworks only.
-- No accounts, analytics or servers of its own. It fetches the blygs you add, plus any images or media their posts link to, which may be hosted elsewhere.
+- No accounts, analytics or servers of its own. It fetches the blygs you add, plus any images or media their posts link to, which may be hosted elsewhere. When a post links to a post on another blyg, it also fetches that blyg's `blyg.json` and the linked post, to show the linked post under it.
 - Posting uses Blygger Studio's owner API. Tokens stay in the iOS Keychain.
 
 ## Build it yourself

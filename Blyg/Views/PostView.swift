@@ -7,6 +7,7 @@ struct PostView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
     @State private var replying = false
+    @State private var linked: [LinkedPost]?
 
     /// The post as a reply target: what Reply sends as `stubOf`.
     private var replyTarget: ReplyTarget {
@@ -26,10 +27,13 @@ struct PostView: View {
     }
 
     var body: some View {
-        PostWebView(html: PostPage.html(for: entry, pageURL: pageURL, theme: theme, quoteSource: quoteSource),
+        PostWebView(html: PostPage.html(for: entry, pageURL: pageURL, theme: theme, quoteSource: quoteSource,
+                                        linked: linked ?? model.savedLinkedPosts(for: entry.document, origin: entry.origin)),
                     baseURL: entry.origin) { url in
             openURL(url)
         }
+        // Cards from blygs this phone doesn't hold arrive a moment later; the web view keeps its scroll position.
+        .task(id: entry.id) { linked = await model.linkedPosts(for: entry.document, origin: entry.origin) }
         .accessibilityIdentifier("postWebView")
         .background(theme.page.ignoresSafeArea())
         .sheet(isPresented: $replying) { ComposerView(replyTo: replyTarget) }
@@ -71,7 +75,8 @@ struct PostView: View {
 /// (blyg, author, dates) above the post, the version history and permalink below it.
 nonisolated enum PostPage {
     static func html(for entry: TimelineEntry, pageURL: URL?, theme: Theme,
-                     quoteSource: (URL, String) -> QuoteSources.Source = { origin, _ in .init(title: origin.host() ?? "") }) -> String {
+                     quoteSource: (URL, String) -> QuoteSources.Source = { origin, _ in .init(title: origin.host() ?? "") },
+                     linked: [LinkedPost] = []) -> String {
         let document = entry.document
         let posted = formatted(document.created)
         let updated = formatted(document.updated)
@@ -121,9 +126,25 @@ nonisolated enum PostPage {
         <style>\(theme.css)</style></head><body>
         <header class="apparatus"><p class="blyg">\(kind)\(HTMLText.escape(entry.blygTitle))</p><p>\(byline.joined(separator: " · "))</p>\(replying)</header>
         <article>\(QuoteSources.annotate(document.contentHTML, ownOrigin: entry.origin, describe: quoteSource))</article>
-        <footer>\(history)\(permalink)</footer>
+        \(cards(linked))<footer>\(history)\(permalink)</footer>
         </body></html>
         """
+    }
+
+    /// Quote cards for the blyg posts this one links to: plain, escaped text only, never the linked post's HTML or images.
+    static func cards(_ posts: [LinkedPost]) -> String {
+        guard !posts.isEmpty else { return "" }
+        let items = posts.map { post -> String in
+            var meta: [String] = []
+            if post.kind == ItemKind.thread.rawValue { meta.append("<span class=\"kind\">Thread</span>") }
+            meta.append(HTMLText.escape(post.blygTitle))
+            if let author = post.author, author != post.blygTitle { meta.append(HTMLText.escape(author)) }
+            if let date = BlygDate.parse(post.updated)?.formatted(date: .abbreviated, time: .omitted) { meta.append(date) }
+            let text = post.withdrawn ? "<span class=\"card-text gone\">Withdrawn by its author.</span>"
+                : "<span class=\"card-text\">\(HTMLText.escape(post.excerpt))</span>"
+            return "<a class=\"card\" href=\"\(HTMLText.escape(post.link.absoluteString))\"><span class=\"card-meta\">\(meta.joined(separator: " · "))</span>\(text)</a>"
+        }
+        return "<section class=\"linked\" aria-label=\"Linked posts\"><p class=\"linked-label\">Links to</p>\(items.joined())</section>"
     }
 
     static func formatted(_ timestamp: String?) -> String? {
@@ -156,6 +177,8 @@ struct PostWebView: UIViewRepresentable {
     func updateUIView(_ view: WKWebView, context: Context) {
         context.coordinator.open = open
         guard context.coordinator.loadedHTML != html else { return }
+        // A reload (cards arriving, a refresh) keeps the reader where they were rather than jumping to the top.
+        if context.coordinator.loadedHTML != nil { context.coordinator.restoreOffset = view.scrollView.contentOffset }
         context.coordinator.loadedHTML = html
         view.loadHTMLString(html, baseURL: baseURL)
     }
@@ -163,8 +186,15 @@ struct PostWebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         var open: (URL) -> Void
         var loadedHTML: String?
+        var restoreOffset: CGPoint?
 
         init(open: @escaping (URL) -> Void) { self.open = open }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard let offset = restoreOffset else { return }
+            restoreOffset = nil
+            webView.scrollView.setContentOffset(offset, animated: false)
+        }
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
             // Only the page this app loaded may render here. Frames and every other navigation are refused;

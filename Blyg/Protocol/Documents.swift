@@ -97,6 +97,13 @@ nonisolated struct ItemDocument: Codable, Sendable, Hashable {
     var changelog: [ChangelogEntry]
     /// Set when this item is a reply: the one thing it answers (§10.6).
     var stubOf: StubOf?
+    /// Plain internal links (`[[id]]`), in document order (§10.3a). Origin absent means this document's own.
+    var links: [LinkRef] = []
+
+    nonisolated struct LinkRef: Codable, Sendable, Hashable {
+        var id: String
+        var origin: String?
+    }
 
     /// A reply's target (§10.6, §5.9): a blyg item `{origin, id, version}` or a plain web `{url}`,
     /// with the citing publisher's frozen label. The label is self-asserted and shown as such.
@@ -175,14 +182,15 @@ nonisolated struct ItemDocument: Codable, Sendable, Hashable {
         case id, kind, version, created, updated, origin, page, author, media, changelog
         case contentHTML = "content_html"
         case stubOf = "stub_of"
+        case links
     }
 
     init(id: String, kind: String, version: Int, created: String, updated: String, origin: String? = nil,
          page: String? = nil, author: Author? = nil, contentHTML: String, media: [Media] = [], changelog: [ChangelogEntry] = [],
-         stubOf: StubOf? = nil) {
+         stubOf: StubOf? = nil, links: [LinkRef] = []) {
         self.id = id; self.kind = kind; self.version = version; self.created = created; self.updated = updated
         self.origin = origin; self.page = page; self.author = author; self.contentHTML = contentHTML
-        self.media = media; self.changelog = changelog; self.stubOf = stubOf
+        self.media = media; self.changelog = changelog; self.stubOf = stubOf; self.links = links
     }
 
     init(from decoder: Decoder) throws {
@@ -199,6 +207,7 @@ nonisolated struct ItemDocument: Codable, Sendable, Hashable {
         media = (c.lenient([Lossy<Media>].self, .media) ?? []).compactMap(\.value)
         changelog = (c.lenient([Lossy<ChangelogEntry>].self, .changelog) ?? []).compactMap(\.value)
         stubOf = c.lenient(StubOf.self, .stubOf)
+        links = (c.lenient([Lossy<LinkRef>].self, .links) ?? []).compactMap(\.value)
     }
 
     /// Versions the publisher has promised to serve forever (§8). Only these may be offered as history (§8.4).
