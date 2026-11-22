@@ -114,6 +114,51 @@ struct HTMLTextTests {
     @Test func escapeMakesTextSafeForHTML() {
         #expect(HTMLText.escape("<b>\"Tom & Jerry\"</b>") == "&lt;b&gt;&quot;Tom &amp; Jerry&quot;&lt;/b&gt;")
     }
+
+    @Test func quotedPostsAreNotTheAuthorsWords() {
+        // A thread that opens with a quote, whose quote holds an ordinary blockquote and an image.
+        let html = """
+        <blockquote class="blyg-transclusion blyg-partial" data-blyg-id="a"><p>Their words</p>\
+        <blockquote><p>nested</p></blockquote><img src="theirs.png"></blockquote>\
+        <p>My words</p><blockquote><p>my own quotation</p></blockquote>\
+        <BLOCKQUOTE class='blyg-transclusion' data-blyg-id="b"><p>More of theirs</p></BLOCKQUOTE><p>end</p>
+        """
+        let own = HTMLText.withoutTransclusions(html)
+        #expect(own.quotes == 2)
+        #expect(HTMLText.plainText(from: own.html) == "My words\nmy own quotation\nend")
+        #expect(HTMLText.firstImageURL(in: own.html, origin: URL(string: "https://sample.example/")!) == nil)
+        #expect(HTMLText.withoutTransclusions("<p>plain</p>") == ("<p>plain</p>", 0))
+        // Unclosed: everything after the quote opens is the quote's, as in a browser.
+        #expect(HTMLText.withoutTransclusions("<p>a</p><blockquote class=\"blyg-transclusion\"><p>b").html == "<p>a</p>")
+    }
+
+    @Test func eachQuoteSaysWhoseWordsTheyAre() {
+        let own = URL(string: "https://sample.example/")!
+        let html = """
+        <blockquote class="blyg-transclusion" data-blyg-id="a"><p>mine, earlier</p></blockquote>\
+        <blockquote class="blyg-transclusion blyg-partial" data-blyg-id="b" data-blyg-origin="https://other.example/blyg/">\
+        <p>theirs</p></blockquote><blockquote><p>no source</p></blockquote>
+        """
+        var asked: [String] = []
+        let out = QuoteSources.annotate(html, ownOrigin: own) { origin, id in
+            asked.append("\(origin.absoluteString) \(id)")
+            return .init(title: id == "a" ? "Sample <Notes>" : "Other", page: URL(string: "\(origin.absoluteString)f/\(id)/"))
+        }
+        #expect(asked == ["https://sample.example/ a", "https://other.example/blyg/ b"])
+        #expect(out.contains("</blockquote><p class=\"quote-source\">From <a href=\"https://sample.example/f/a/\">Sample &lt;Notes&gt;</a></p>"))
+        #expect(out.contains("<p class=\"quote-source\">Part of a post from <a href=\"https://other.example/blyg/f/b/\">Other</a></p>"))
+        #expect(out.components(separatedBy: "quote-source").count == 3) // the plain blockquote gets none
+        #expect(QuoteSources.annotate("<p>x</p>", ownOrigin: own) { _, _ in .init(title: "") } == "<p>x</p>")
+    }
+
+    @Test func aTimelineRowShowsOnlyTheThreadsOwnWords() throws {
+        let doc = try decode(ItemDocument.self, Fixtures.threadDocument)
+        var blyg = SavedBlyg(origin: URL(string: "https://sample.example/")!, manifest: Manifest(blyg: "0.4"), addedAt: .now)
+        blyg.items[doc.id] = SavedItem(id: doc.id, kind: doc.kind, version: doc.version, versionSeenAt: .now, document: doc)
+        let row = try #require(Library(blygs: [blyg]).timeline().first)
+        #expect(row.excerpt == "Two notes, one thought.\nBoth are about pace.")
+        #expect(row.quoteCount == 1)
+    }
 }
 
 @Suite("Themes")

@@ -53,6 +53,8 @@ nonisolated struct TimelineEntry: Sendable, Identifiable, Hashable {
     /// Plain text for the row, worked out once rather than on every redraw.
     var excerpt: String
     var imageURL: URL?
+    /// How many other posts a thread quotes (baked transclusions, §10). They're kept out of `excerpt`.
+    var quoteCount = 0
 
     /// Ids are scoped to their origin (§13.1 rule 7).
     var id: String { origin.absoluteString + "#" + document.id }
@@ -66,10 +68,13 @@ nonisolated extension Library {
             blyg.items.values.compactMap { item -> TimelineEntry? in
                 guard item.isShowable, let document = item.document else { return nil }
                 let claimed = BlygDate.parse(document.updated) ?? item.versionSeenAt
+                // Only the author's own words and pictures: quoted posts are someone else's.
+                let own = HTMLText.withoutTransclusions(document.contentHTML)
                 return TimelineEntry(origin: blyg.origin, blygTitle: blyg.title, document: document,
                                      sortDate: min(claimed, item.versionSeenAt),
-                                     excerpt: String(HTMLText.plainText(from: document.contentHTML).prefix(600)),
-                                     imageURL: HTMLText.firstImageURL(in: document.contentHTML, origin: blyg.origin))
+                                     excerpt: String(HTMLText.plainText(from: own.html).prefix(600)),
+                                     imageURL: HTMLText.firstImageURL(in: own.html, origin: blyg.origin),
+                                     quoteCount: own.quotes)
             }
         }
         .sorted { $0.sortDate != $1.sortDate ? $0.sortDate > $1.sortDate : $0.id < $1.id }

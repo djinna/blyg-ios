@@ -164,6 +164,11 @@ struct TimelineRow: View {
                     .foregroundStyle(theme.ink)
                     .lineLimit(typeSize.isAccessibilitySize ? 12 : 8)
             }
+            if entry.quoteCount > 0 {
+                Label(entry.quoteCount == 1 ? "Quotes a post" : "Quotes \(entry.quoteCount) posts", systemImage: "quote.opening")
+                    .font(theme.apparatus)
+                    .foregroundStyle(theme.pencil)
+            }
             if let image = entry.imageURL {
                 AsyncImage(url: image) { phase in
                     if let picture = phase.image {

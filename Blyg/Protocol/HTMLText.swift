@@ -39,6 +39,40 @@ nonisolated enum HTMLText {
         return lines.filter { !$0.isEmpty }.joined(separator: "\n")
     }
 
+    /// A thread's own words: its HTML without the other people's writing baked into it as
+    /// `blockquote.blyg-transclusion` (§10), plus how many quotes were taken out. Nesting-aware, so a
+    /// transclusion that itself contains blockquotes is removed whole. Studio does the same for every
+    /// one-line summary (its `authorOwnHtml`), so a thread that opens with a quote isn't shown as the quoted words.
+    static func withoutTransclusions(_ html: String) -> (html: String, quotes: Int) {
+        guard html.range(of: "blyg-transclusion") != nil,
+              let regex = try? NSRegularExpression(pattern: "<blockquote\\b[^>]*>|</blockquote\\s*>", options: [.caseInsensitive])
+        else { return (html, 0) }
+        let text = html as NSString
+        var out = ""
+        var kept = 0 // where the next kept run starts
+        var stack: [Bool] = [] // is each open blockquote a transclusion?
+        var quotes = 0
+        for match in regex.matches(in: html, range: NSRange(location: 0, length: text.length)) {
+            let tag = text.substring(with: match.range)
+            let inside = stack.contains(true)
+            if tag.hasPrefix("</") {
+                guard let wasQuote = stack.popLast() else { continue }
+                if wasQuote, !stack.contains(true) { kept = match.range.location + match.range.length }
+            } else {
+                let isQuote = HTMLText.attribute("class", in: Substring(tag.dropFirst("<blockquote".count)))?
+                    .split(separator: " ").contains("blyg-transclusion") ?? false
+                if isQuote, !inside {
+                    out += text.substring(with: NSRange(location: kept, length: match.range.location - kept))
+                    quotes += 1
+                }
+                stack.append(isQuote)
+            }
+        }
+        // An unclosed transclusion swallows the rest, as a browser would put the rest inside it.
+        if !stack.contains(true) { out += text.substring(from: kept) }
+        return (out, quotes)
+    }
+
     /// The first `<img src>` as an absolute URL, if any.
     static func firstImageURL(in html: String, origin: URL) -> URL? {
         guard let img = html.range(of: "<img", options: .caseInsensitive),

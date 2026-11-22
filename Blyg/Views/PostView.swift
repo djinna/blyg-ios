@@ -16,8 +16,18 @@ struct PostView: View {
 
     private var pageURL: URL? { BlygURL.page(for: entry.document, origin: entry.origin) }
 
+    /// Names a quoted post from what's already saved; nothing is fetched. A blyg you don't follow is named by its host,
+    /// and its post is linked by Studio's page convention, as Studio itself does.
+    private func quoteSource(origin: URL, id: String) -> QuoteSources.Source {
+        let blyg = model.blyg(origin)
+        let title = blyg?.title ?? origin.host() ?? origin.absoluteString
+        if let document = blyg?.items[id]?.document { return .init(title: title, page: BlygURL.page(for: document, origin: origin)) }
+        return .init(title: title, page: BlygURL.resolve("f/\(id)/", against: origin))
+    }
+
     var body: some View {
-        PostWebView(html: PostPage.html(for: entry, pageURL: pageURL, theme: theme), baseURL: entry.origin) { url in
+        PostWebView(html: PostPage.html(for: entry, pageURL: pageURL, theme: theme, quoteSource: quoteSource),
+                    baseURL: entry.origin) { url in
             openURL(url)
         }
         .accessibilityIdentifier("postWebView")
@@ -60,7 +70,8 @@ struct PostView: View {
 /// everything this app adds around it is escaped text. Layout follows Studio's item page: the apparatus
 /// (blyg, author, dates) above the post, the version history and permalink below it.
 nonisolated enum PostPage {
-    static func html(for entry: TimelineEntry, pageURL: URL?, theme: Theme) -> String {
+    static func html(for entry: TimelineEntry, pageURL: URL?, theme: Theme,
+                     quoteSource: (URL, String) -> QuoteSources.Source = { origin, _ in .init(title: origin.host() ?? "") }) -> String {
         let document = entry.document
         let posted = formatted(document.created)
         let updated = formatted(document.updated)
@@ -109,7 +120,7 @@ nonisolated enum PostPage {
         <meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'">
         <style>\(theme.css)</style></head><body>
         <header class="apparatus"><p class="blyg">\(kind)\(HTMLText.escape(entry.blygTitle))</p><p>\(byline.joined(separator: " · "))</p>\(replying)</header>
-        <article>\(document.contentHTML)</article>
+        <article>\(QuoteSources.annotate(document.contentHTML, ownOrigin: entry.origin, describe: quoteSource))</article>
         <footer>\(history)\(permalink)</footer>
         </body></html>
         """

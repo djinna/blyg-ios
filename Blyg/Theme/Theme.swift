@@ -120,6 +120,8 @@ nonisolated struct Theme: Sendable {
         pre { white-space: pre-wrap; padding: 10px 12px; border-radius: 4px; background: var(--sunk); }
         blockquote { margin: 1em 0; padding: 0.1em 0 0.1em 1em; border-left: 2px solid var(--rule); }
         blockquote.blyg-transclusion { border-left-color: var(--pencil); }
+        .quote-source { font: -apple-system-footnote; font-family: \(fonts.apparatus); color: var(--soft); margin: -0.5em 0 1.2em 1.1em; }
+        .quote-source a { color: var(--soft); }
         table { border-collapse: collapse; display: block; overflow-x: auto; }
         td, th { border: 1px solid var(--rule); padding: 4px 8px; }
         hr { border: none; border-top: 1px solid var(--rule); }
