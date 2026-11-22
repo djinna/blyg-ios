@@ -1,10 +1,11 @@
 # BUILD
 
-**Status (2026-11-22, 10:20 ET):** builds 5, 6 and 7 are in the hackathon group (Jenna removed build 2). Build 8 is on `main` and not uploaded yet: quoted posts shown as quotes, line breaks kept, the share sheet's default blyg, refresh on return. Next: quote cards for links to blyg posts (needs a privacy-page change first; see the open question in the next session's handoff).
+**Status (2026-11-22):** builds 5, 6 and 7 are in the hackathon group (Jenna removed build 2). Build 8 is on `main` and not uploaded yet. It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone.
 
 ## Versions
 
-### v0.1, build 8 (not uploaded): quotes, line breaks, share sheet (2026-11-22)
+### v0.1, build 8 (not uploaded): quote cards, quotes, line breaks, share sheet (2026-11-22)
+- **Quote cards:** when a post links to a blyg post, the post page shows that post's blyg, author, date and opening words under it, at most three. A link to a post on a blyg you follow now opens in the app. The privacy page and README say what's fetched.
 - **Quoted posts are shown as quotes.** A thread's `content_html` bakes other posts in as `blockquote.blyg-transclusion` (§10). Timeline rows used to flatten them in, so a thread that opened with a quote showed someone else's words as the author's. A reply to such a thread also sent those words out as its `stub_of.cited.excerpt`. Rows now use the author's own words, plus "Quotes a post". The post page says "From <blyg>" under each quote.
 - **Single line breaks are kept** in the composer and the share sheet.
 - **The share sheet remembers its last blyg,** using the same rule as the composer.
@@ -102,6 +103,14 @@
 - **The timeline is ordered by each post's claimed `updated` date, capped at when the app first saw that version** (§13.7), so a future-dated post can't stay on top. *Beat:* trusting the claimed date.
 
 
+- **Quote cards fetch only what a link proves is a blyg post (2026-11-22).** Jenna approved the privacy-page change first.
+  - **What counts as a candidate:** a `links[]` entry (§10.3a), or an `<a href>` shaped like Studio's item page (`f/{id}/`, `t/{id}/`). The shape alone isn't trusted: the fetched item's own `page` must resolve back to the link.
+  - **Cost:** two JSON GETs per card, with nothing fetched for posts already saved.
+  - **What a card shows:** escaped plain text, never the linked post's HTML or images.
+  - **Where:** on the post page only, never in the timeline.
+  - **What's skipped:** links inside baked quotes (they're the quoted author's), the post itself, and the post it replies to.
+  - Studio puts every `[[id]]` link in the HTML as an ordinary `<a href>` to the page as well, so both routes find it; checked on the sandbox.
+  - *Beat:* resolving every link with the full §12.1 resolver, which would probe any website a post links to; and showing the current version as if it were a quote. A card is a link preview, not a transclusion: only the publisher bakes quotes (§10.3–§10.4).
 - **No OAuth during the hackathon (2026-11-22).** It would let testers sign in with their Studio password instead of pasting a token, with no 30-day expiry. From reading Studio 0.65's code: it registers any app without approval, can issue REST tokens, and access tokens last an hour and renew. Still unknown: whether Studio will redirect back into an iOS app. The costs: an Associated Domains file on a domain we control, signing changes, every tester's Studio being new enough, and the app and the share sheet racing to renew one token. Paste stays as a fallback for App Review. Jenna will raise it with the group. *Beat:* building it this week.
 - **Single line breaks become Studio's backslash hard break (2026-11-22).** Studio's markdown-it joins single newlines, and a phone has no Shift+Enter.
   - The break is written exactly as Studio's own Shift+Enter writes it (`format-shortcuts.ts`), so Edit in Studio shows familiar markdown.
