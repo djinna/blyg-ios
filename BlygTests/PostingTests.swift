@@ -345,3 +345,25 @@ struct ReplyTests {
         #expect(model.library.blygs.map(\.origin.absoluteString) == ["https://sample.example/", "https://second.example/"])
     }
 }
+
+@Suite("Where a post goes by default")
+struct PostTargetTests {
+    let live = URL(string: "https://live.example/")!
+    let sandbox = URL(string: "https://sandbox.example/")!
+    let other = URL(string: "https://someone-else.example/")!
+
+    @Test func aReplyToYourOwnBlygGoesOutFromThatBlyg() {
+        #expect(PostTarget.choose(replyingTo: sandbox, connected: [live, sandbox], lastUsed: live) == sandbox)
+    }
+
+    @Test func otherwiseTheLastBlygUsedWins() {
+        #expect(PostTarget.choose(replyingTo: other, connected: [live, sandbox], lastUsed: sandbox) == sandbox)
+        #expect(PostTarget.choose(replyingTo: nil, connected: [live, sandbox], lastUsed: sandbox) == sandbox)
+    }
+
+    @Test func aForgottenOrDisconnectedLastUseFallsBackToTheFirst() {
+        #expect(PostTarget.choose(replyingTo: nil, connected: [live, sandbox], lastUsed: other) == live)
+        #expect(PostTarget.choose(replyingTo: nil, connected: [live, sandbox], lastUsed: nil) == live)
+        #expect(PostTarget.choose(replyingTo: nil, connected: [], lastUsed: live) == nil)
+    }
+}

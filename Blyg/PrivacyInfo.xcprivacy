@@ -12,7 +12,7 @@
 	<!-- Add a reason here whenever the app starts using a required-reason API (UserDefaults: CA92.1, file timestamps: C617.1). -->
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
-		<!-- The Appearance setting (Studio or System) is kept in this app's own UserDefaults. -->
+		<!-- The Appearance setting and the last blyg posted to are kept in this app's own UserDefaults. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>

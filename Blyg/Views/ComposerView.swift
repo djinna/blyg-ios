@@ -152,7 +152,10 @@ struct ComposerView: View {
             }
             .interactiveDismissDisabled(step != nil || !draft.isEmpty)
             .onAppear {
-                if target == nil { target = blygs.first?.origin }
+                if target == nil {
+                    target = PostTarget.choose(replyingTo: replyTo?.origin, connected: blygs.map(\.origin),
+                                               lastUsed: PostTarget.lastUsed)
+                }
                 textFocused = true
             }
             .onChange(of: photoItem) { _, item in loadPhoto(item) }
@@ -182,23 +185,33 @@ struct ComposerView: View {
     private var targetRow: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(replyTo == nil ? "To" : "Reply from").font(theme.apparatus).foregroundStyle(theme.soft)
+            // A bordered button, not plain text: where a post goes is the one choice that's hard to undo.
             if blygs.count > 1 {
-                Picker("Post to", selection: $target) {
-                    ForEach(blygs) { blyg in Text(blyg.title).tag(Optional(blyg.origin)) }
+                Menu {
+                    Picker("Post to", selection: $target) {
+                        ForEach(blygs) { blyg in Text(blyg.title).tag(Optional(blyg.origin)) }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(targetTitle ?? "Choose a blyg").font(.headline)
+                        Image(systemName: "chevron.up.chevron.down").font(.footnote.weight(.semibold))
+                    }
+                    .frame(minHeight: 32)
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .padding(.leading, -12) // the menu button's own inset; align with "To"
-                .frame(minHeight: 44)
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .padding(.vertical, 6)
+                .accessibilityLabel(replyTo == nil ? "Post to \(targetTitle ?? "")" : "Reply from \(targetTitle ?? "")")
                 .accessibilityIdentifier("postToPicker")
             } else {
                 Text(targetTitle ?? "")
-                    .font(.subheadline)
+                    .font(.headline)
                     .foregroundStyle(theme.pencil)
                     .frame(minHeight: 44)
             }
             if let target {
-                Text(target.absoluteString).font(theme.apparatus).foregroundStyle(theme.soft)
+                Text("Publishes on \(target.host() ?? target.absoluteString), publicly.")
+                    .font(theme.apparatus).foregroundStyle(theme.soft)
             }
         }
         .padding(.top, 12)
@@ -269,6 +282,7 @@ struct ComposerView: View {
                     await MainActor.run { step = newStep }
                 }
                 step = nil
+                PostTarget.lastUsed = target
                 dismiss()
                 await model.refresh(target)
             } catch {
@@ -276,5 +290,25 @@ struct ComposerView: View {
                 self.error = Poster.describe(error, blygTitle: title)
             }
         }
+    }
+}
+
+/// Which blyg a new post or reply goes to by default.
+nonisolated enum PostTarget {
+    static let storageKey = "lastPostTarget"
+
+    /// A reply to a post on one of your own blygs goes out from that blyg; otherwise the blyg you last
+    /// posted from; otherwise the first you connected. (Build 6 always took the first, and a test reply
+    /// to the sandbox went out from Jenna's live blyg.)
+    static func choose(replyingTo: URL?, connected: [URL], lastUsed: URL?) -> URL? {
+        if let replyingTo, connected.contains(replyingTo) { return replyingTo }
+        if let lastUsed, connected.contains(lastUsed) { return lastUsed }
+        return connected.first
+    }
+
+    /// Remembered in this app's UserDefaults (privacy manifest: CA92.1). Only an origin, never a token.
+    static var lastUsed: URL? {
+        get { UserDefaults.standard.string(forKey: storageKey).flatMap(URL.init(string:)) }
+        set { UserDefaults.standard.set(newValue?.absoluteString, forKey: storageKey) }
     }
 }
