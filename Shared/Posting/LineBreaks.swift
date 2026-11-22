@@ -10,6 +10,7 @@ nonisolated enum LineBreaks {
         var lines = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
         guard lines.count > 1 else { return text }
         var fence: String? // "```", "~~~" or "$$" while inside one
+        var afterDirective = false // in the quote attached to a `![[id]]` line: its text must match the source exactly
         for i in 0..<(lines.count - 1) {
             let line = lines[i]
             if let open = fence {
@@ -17,6 +18,11 @@ nonisolated enum LineBreaks {
                 continue
             }
             if let opened = opensFence(line) { fence = opened; continue }
+            if isDirective(line) { afterDirective = true; continue }
+            if afterDirective {
+                if line.allSatisfy(\.isWhitespace) { afterDirective = false }
+                continue
+            }
             if breaks(between: line, and: lines[i + 1]) {
                 lines[i] = String(line.reversed().drop(while: { $0 == " " || $0 == "\t" }).reversed()) + "\\"
             }
@@ -33,6 +39,7 @@ nonisolated enum LineBreaks {
         if indent(current) >= 4 || current.contains("\t") { return false } // code, or deep list text: leave it
         if current.contains("|") || next.contains("|") { return false }    // table rows
         if matches(current, heading) || matches(current, rule) || opensFence(current) != nil { return false }
+        if isDirective(next) { return false }
         for pattern in [listItem, heading, rule, quote] where matches(next, pattern) { return false }
         return opensFence(next) == nil
     }
@@ -42,6 +49,12 @@ nonisolated enum LineBreaks {
     /// A thematic break, or a setext underline (`===`, `---`) that would make the line above a heading.
     private static let rule = #"^ {0,3}(([-*_])( *\2){2,}|=+|-+) *$"#
     private static let quote = #"^ {0,3}>"#
+
+    /// Studio's whole-line transclusion directive, `![[id]]` (spec §10.1), which a backslash would stop matching.
+    /// Not yet checked against Studio's `grammar.ts`: anything starting `![[` is left alone, which only costs a line break.
+    private static func isDirective(_ line: String) -> Bool {
+        line.drop(while: { $0 == " " }).hasPrefix("![[")
+    }
 
     private static func matches(_ line: String, _ pattern: String) -> Bool {
         line.range(of: pattern, options: .regularExpression) != nil
