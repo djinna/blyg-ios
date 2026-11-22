@@ -1,8 +1,12 @@
 # BUILD
 
-**Status (2026-11-22):** build 2 passed Beta App Review; the public link has its first tester. Jenna is adding build 5 to the group. Build 6 (545f5bd: replies, bottom post bar, follow your Studio's blygs) is uploaded. Next: Jenna sends a first reply from the app, sandbox to sandbox, then adds build 6 to the group.
+**Status (2026-11-22):** builds 5 and 6 are in the hackathon group. Jenna's first in-app reply worked end to end but went out from her live blyg (she withdrew it with Edit in Studio). Build 7 fixes the default "Reply from" and is ready to upload.
 
 ## Versions
+
+### v0.1, build 7: replies go out from the right blyg (2026-11-22)
+- **Default "Reply from":** a reply to a post on one of your connected blygs now comes from that blyg; otherwise the blyg you last posted from; otherwise the first you connected. Build 6 always took the first, so Jenna's test reply to a sandbox post went out from her live blyg.
+- **Where a post goes is unmissable:** a bordered "To / Reply from" button, and a line saying which blyg it publishes on.
 
 ### v0.1, build 6: replies, and the first tester's requests (2026-11-22)
 - **Reply to any post:** a thread with `stubOf` `{origin, id, version, cited}`, from whichever of your blygs you choose. Studio refuses `stubOf` on a fragment, and accepts a reply to any blyg without following it first; both tried on the sandbox with Studio's SDK.
@@ -93,6 +97,7 @@
 ## Lessons
 
 - **`URL.path()` is percent-encoded.** `FileManager.fileExists(atPath: url.path())` is false for anything under `Application Support`, so the saved library was always read from its backup. Use `path(percentEncoded: false)`, and give test folders a space in their name. Found by the offline-state screenshot, not by the tests.
+- **Default to the safest target, and make the target visible.** A composer that silently picks a blyg will eventually post somewhere unintended; this happened on the first try (build 6). A reply's natural home is the blyg it answers.
 - **Two `@AppStorage` properties on the same key misbehaved.** The Settings screen and the root view both read `appearance`. After the first change, Settings stopped redrawing, so further taps looked dead; the value was still being saved. Fix: one reader (`ThemedRoot`) passes the theme down; Settings only writes. Caught by Jenna on build 3; a UI test now switches back and forth.
 - **A web view's text reaches the accessibility tree late on a busy simulator.** The UI test waits 20 s for it.
 - **A development archive doesn't register the bundle IDs.** With no capabilities that need one, automatic signing uses the team's wildcard profile, so App Store Connect's New App form can't find the IDs. An App Store export (`xcodebuild -exportArchive` with `destination` `export`, nothing uploaded) registers them. Afterwards, reload App Store Connect.
