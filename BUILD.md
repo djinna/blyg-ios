@@ -1,6 +1,6 @@
 # BUILD
 
-**Status (2026-11-22):** builds 5 and 6 are in the hackathon group. Jenna's first in-app reply worked end to end but went out from her live blyg (she withdrew it with Edit in Studio). Build 7 fixes the default "Reply from" and is ready to upload.
+**Status (2026-11-22):** builds 5 and 6 are in the hackathon group. Jenna's first in-app reply worked end to end but went out from her live blyg (she withdrew it with Edit in Studio). Build 7 (dc45fe4) fixes the default "Reply from" and is uploaded.
 
 ## Versions
 
