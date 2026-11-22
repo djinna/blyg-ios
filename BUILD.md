@@ -1,8 +1,16 @@
 # BUILD
 
-**Status (2026-11-20):** build 2 (7c4ce55) is in Beta App Review for the external group "PI Blyg Hackathon 2026". Build 5 (f7ee126) is uploaded for internal testing: the Studio and System looks, the Appearance fix and the forkable Keychain group. To check on Jenna's phone: switching the look back and forth, and posting with an existing connection.
+**Status (2026-11-22):** build 2 passed Beta App Review; the public link has its first tester. Jenna is adding build 5 to the group. Build 6 (replies, bottom post bar, follow your Studio's blygs) is ready to upload.
 
 ## Versions
+
+### v0.1, build 6: replies, and the first tester's requests (2026-11-22)
+- **Reply to any post:** a thread with `stubOf` `{origin, id, version, cited}`, from whichever of your blygs you choose. Studio refuses `stubOf` on a fragment, and accepts a reply to any blyg without following it first; both tried on the sandbox with Studio's SDK.
+- **Replies show "Replying to …"** in the timeline and on the post page, drawn from `stub_of`. The citation is the replier's own label and is shown as theirs.
+- **New post** is a bottom bar, for one-handed use (tester request). It has a bar of its own, so it never covers a post (Jenna's earlier nit).
+- **"Follow the blygs this Studio follows"** on a connected blyg's page (tester request). It reads `/api/subscriptions`, adds blygs one at a time and skips plain RSS.
+- **Edit in Studio, Share and Safari** are in a More menu on the post page.
+- Text on the blue buttons stays readable in dark mode.
 
 ### v0.1, builds 4 and 5: forkable, and the Appearance fix (2026-11-20)
 - **Build 4 (d9a040e):**
@@ -71,6 +79,8 @@
   - Only type and colour change, so each feature is built once. *Beat:* keeping the original stock-list screens as a second layout, which would mean building every feature twice.
   - The setting lives in UserDefaults (privacy manifest reason CA92.1). The share sheet stays System, since sharing the setting would need an App Group.
   - Jenna saw a mockup of Studio-native first (claude.ai design canvas); she doesn't love the look but chose to match Blygger's design language.
+- **Blyg stays minimal; Studio is the full editor (2026-11-22).** Studio already ships as an installable web app (`{blyg}/studio/manifest.webmanifest`, with a phone composer). So Blyg covers reading, quick posts, replies and the share sheet, and links to Studio ("Edit in Studio") for editing, threads with quotes, pins and withdrawal. *Beat:* reimplementing Studio's editor natively, or a second "maximal" app.
+- **No link previews or embeds in Blyg for now.** Studio adds none to post HTML; its YouTube poster is a script on its own pages only. A post that links to another blyg post could show a quote card from the protocol (v0.2). *Beat:* fetching third-party previews, which would break "talks only to blygs and their media".
 - **Third-party network services:** none of our own. The app fetches the blygs the user adds, plus any images or media their posts link to, which can be on other hosts. *Beat:* blocking images from other hosts with a content rule list, which keeps the privacy claim but leaves many posts imageless. The README says this plainly.
 - **Sync from `items/index.json` and item documents, not `feed.xml`.** The spec makes item documents the ground truth and the feed a lossy signal. It also lists each version of an item separately, and must be rolled up by `blyg:id`. The feed is used only to find a manifest. *Beat:* the plan's "read `feed.xml`".
 - **Never vary behaviour by `generator` or `level`.** Spec §3.2 and §13.1 rule 8 forbid it. Posting will be offered when a blyg's `/api` answers and a token is saved. *Beat:* the plan's "read `generator` and only show Post when `/api` responds".
