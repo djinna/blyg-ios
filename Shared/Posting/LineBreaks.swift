@@ -50,10 +50,10 @@ nonisolated enum LineBreaks {
     private static let rule = #"^ {0,3}(([-*_])( *\2){2,}|=+|-+) *$"#
     private static let quote = #"^ {0,3}>"#
 
-    /// Studio's whole-line transclusion directive, `![[id]]` (spec §10.1), which a backslash would stop matching.
-    /// Not yet checked against Studio's `grammar.ts`: anything starting `![[` is left alone, which only costs a line break.
+    /// Studio's whole-line transclusion directive (spec §10.1), which a backslash would stop matching. Studio 0.65's
+    /// `DIRECTIVE_LINE` and `RESERVED_LINE` (`src/grammar.ts`) both begin `^\s*!\[\[`; anything that does is left alone.
     private static func isDirective(_ line: String) -> Bool {
-        line.drop(while: { $0 == " " }).hasPrefix("![[")
+        line.drop(while: \.isWhitespace).hasPrefix("![[")
     }
 
     private static func matches(_ line: String, _ pattern: String) -> Bool {

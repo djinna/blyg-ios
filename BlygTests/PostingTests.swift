@@ -146,8 +146,9 @@ struct PosterTests {
         ("trailing   \nspaces", "trailing   \nspaces"),
         ("    code\n    more", "    code\n    more"),
         ("* * *\nnext", "* * *\nnext"),
-        // Transclusion directives and the quote attached to one (§10.1) are never touched. Not yet rendered by Studio.
+        // Transclusion directives and the quote attached to one (§10.1) are never touched (Studio's DIRECTIVE_LINE: ^\s*![[).
         ("Look:\n![[abc]]\nmore", "Look:\n![[abc]]\nmore"),
+        ("Look:\n\t![[abc]]", "Look:\n\t![[abc]]"),
         ("![[abc]]\n> their words\n> exactly\n\nmine\nhere", "![[abc]]\n> their words\n> exactly\n\nmine\\\nhere"),
     ])
     func singleLineBreaksAreKept(typed: String, posted: String) {

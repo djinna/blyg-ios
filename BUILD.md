@@ -1,10 +1,10 @@
 # BUILD
 
-**Status (2026-11-22):** builds 5, 6 and 7 are in the hackathon group (Jenna removed build 2). Build 8 is on `main` and not uploaded yet. It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone.
+**Status (2026-11-22):** builds 5, 6 and 7 are in the hackathon group (Jenna removed build 2). Build 8 is uploaded (2026-11-22). It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone.
 
 ## Versions
 
-### v0.1, build 8 (not uploaded): quote cards, quotes, line breaks, share sheet (2026-11-22)
+### v0.1, build 8: quote cards, quotes, line breaks, share sheet (2026-11-22)
 - **Quote cards:** when a post links to a blyg post, the post page shows that post's blyg, author, date and opening words under it, at most three. A link to a post on a blyg you follow now opens in the app. The privacy page and README say what's fetched.
 - **Quoted posts are shown as quotes.** A thread's `content_html` bakes other posts in as `blockquote.blyg-transclusion` (§10). Timeline rows used to flatten them in, so a thread that opened with a quote showed someone else's words as the author's. A reply to such a thread also sent those words out as its `stub_of.cited.excerpt`. Rows now use the author's own words, plus "Quotes a post". The post page says "From <blyg>" under each quote.
 - **Single line breaks are kept** in the composer and the share sheet.
