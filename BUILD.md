@@ -1,8 +1,16 @@
 # BUILD
 
-**Status (2026-11-22):** builds 5 and 6 are in the hackathon group. Jenna's first in-app reply worked end to end but went out from her live blyg (she withdrew it with Edit in Studio). Build 7 (dc45fe4) fixes the default "Reply from" and is uploaded.
+**Status (2026-11-22, 10:20 ET):** builds 5, 6 and 7 are in the hackathon group (Jenna removed build 2). Build 8 is on `main` and not uploaded yet: quoted posts shown as quotes, line breaks kept, the share sheet's default blyg, refresh on return. Next: quote cards for links to blyg posts (needs a privacy-page change first; see the open question in the next session's handoff).
 
 ## Versions
+
+### v0.1, build 8 (not uploaded): quotes, line breaks, share sheet (2026-11-22)
+- **Quoted posts are shown as quotes.** A thread's `content_html` bakes other posts in as `blockquote.blyg-transclusion` (§10). Timeline rows used to flatten them in, so a thread that opened with a quote showed someone else's words as the author's. A reply to such a thread also sent those words out as its `stub_of.cited.excerpt`. Rows now use the author's own words, plus "Quotes a post". The post page says "From <blyg>" under each quote.
+- **Single line breaks are kept** in the composer and the share sheet.
+- **The share sheet remembers its last blyg,** using the same rule as the composer.
+- **Coming back to the app refreshes:**
+  - your own blygs after 30 s, so a share-sheet post shows up;
+  - the others after 10 minutes.
 
 ### v0.1, build 7: replies go out from the right blyg (2026-11-22)
 - **Default "Reply from":** a reply to a post on one of your connected blygs now comes from that blyg; otherwise the blyg you last posted from; otherwise the first you connected. Build 6 always took the first, so Jenna's test reply to a sandbox post went out from her live blyg.
@@ -94,6 +102,16 @@
 - **The timeline is ordered by each post's claimed `updated` date, capped at when the app first saw that version** (§13.7), so a future-dated post can't stay on top. *Beat:* trusting the claimed date.
 
 
+- **Single line breaks become Studio's backslash hard break (2026-11-22).** Studio's markdown-it joins single newlines, and a phone has no Shift+Enter.
+  - The break is written exactly as Studio's own Shift+Enter writes it (`format-shortcuts.ts`), so Edit in Studio shows familiar markdown.
+  - It applies only between two lines of one paragraph. A backslash at the end of a block shows literally, so lists, headings, setext underlines, fences, math and tables are left alone.
+  - Every case was checked with Studio 0.65's `renderMarkdown` on the sandbox.
+  - *Beat:* a hint only, which leaves the surprise in place; a "line break" key, which is one more control in a minimal composer.
+- **Baked quotes: shown as quotes, named from what's saved, never re-fetched (2026-11-22).** Readers display baked HTML and never resolve (§10.3).
+  - The "From …" line uses the saved blyg's title, or else the host.
+  - The link is the saved post's page, or else Studio's `f/{id}/` convention, as Studio's own page does.
+  - *Beat:* fetching each quoted post to label it.
+
 ## Lessons
 
 - **`URL.path()` is percent-encoded.** `FileManager.fileExists(atPath: url.path())` is false for anything under `Application Support`, so the saved library was always read from its backup. Use `path(percentEncoded: false)`, and give test folders a space in their name. Found by the offline-state screenshot, not by the tests.
@@ -102,4 +120,5 @@
 - **A web view's text reaches the accessibility tree late on a busy simulator.** The UI test waits 20 s for it.
 - **A development archive doesn't register the bundle IDs.** With no capabilities that need one, automatic signing uses the team's wildcard profile, so App Store Connect's New App form can't find the IDs. An App Store export (`xcodebuild -exportArchive` with `destination` `export`, nothing uploaded) registers them. Afterwards, reload App Store Connect.
 - **Internal TestFlight needs an emailed invitation, even for the account holder.** The tester shows as "Invited", and the app doesn't appear in TestFlight until the email's link or redeem code is used; refreshing TestFlight doesn't help. The external public link has no such step.
+- **Check markdown on Studio's own renderer, not from memory.** On the sandbox, `npx tsx` with a script that imports `~/blygger-studio/src/markdown.ts` renders exactly what a post will show, math plugin included.
 - **SF Symbols and Apple's system fonts can't be used in app icons** (licence). The icon is drawn as shapes by `scripts/make-icon.swift`.
