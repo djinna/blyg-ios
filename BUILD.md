@@ -1,6 +1,6 @@
 # BUILD
 
-**Status (2026-11-22):** builds 5, 6 and 7 are in the hackathon group (Jenna removed build 2). Build 8 is uploaded (2026-11-22). It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone.
+**Status (2026-11-22):** builds 5, 6, 7 and 8 are in the hackathon group (Jenna removed build 2). Build 8 was uploaded and added on 2026-11-22. It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone.
 
 ## Versions
 
