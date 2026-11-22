@@ -9,6 +9,8 @@ enum Route: Hashable {
 
 struct RootView: View {
     @Environment(LibraryModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var wasInBackground = false
     @State private var path: [Route] = []
     @State private var showingAdd = false
     @State private var showingComposer = false
@@ -32,6 +34,14 @@ struct RootView: View {
             ComposerView()
         }
         .task { await launch() }
+        .onChange(of: scenePhase) { _, phase in
+            // Only on coming back from the background (launch() refreshes everything; Control Centre doesn't count).
+            if phase == .background { wasInBackground = true }
+            if phase == .active, wasInBackground {
+                wasInBackground = false
+                Task { await model.refreshStale() }
+            }
+        }
     }
 
     private func launch() async {

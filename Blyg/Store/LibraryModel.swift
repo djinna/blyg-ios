@@ -64,6 +64,21 @@ final class LibraryModel {
         }
     }
 
+    /// Coming back to the app: catch up without hammering anyone. Your own blygs are refreshed after 30 seconds,
+    /// so a post made from the share sheet (which can't tell the app) shows up; the others after 10 minutes.
+    func refreshStale(now: Date = .now) async {
+        let own = Set(postingBlygs.map(\.origin))
+        let stale = library.blygs.filter { blyg in
+            guard let last = blyg.lastRefresh else { return true }
+            return now.timeIntervalSince(last) > (own.contains(blyg.origin) ? 30 : 600)
+        }
+        await withTaskGroup(of: Void.self) { group in
+            for blyg in stale {
+                group.addTask { await self.refresh(blyg.origin) }
+            }
+        }
+    }
+
     func refresh(_ origin: URL) async {
         guard let current = blyg(origin), !refreshing.contains(origin) else { return }
         refreshing.insert(origin)

@@ -38,7 +38,7 @@ final class ShareModel {
     init(context: NSExtensionContext?) {
         self.context = context
         connections = tokens.connections()
-        target = connections.first?.origin
+        target = PostTarget.choose(replyingTo: nil, connected: connections.map(\.origin), lastUsed: PostTarget.lastUsed)
     }
 
     var linkURL: URL? {
@@ -108,6 +108,7 @@ final class ShareModel {
                 _ = try await poster.post(draft) { newStep in
                     await MainActor.run { self.step = newStep }
                 }
+                PostTarget.lastUsed = target
                 context?.completeRequest(returningItems: [], completionHandler: nil)
             } catch {
                 step = nil
