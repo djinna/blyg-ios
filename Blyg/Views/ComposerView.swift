@@ -61,7 +61,7 @@ struct ComposerView: View {
                         .accessibilityIdentifier("composerText")
                         .overlay(alignment: .topLeading) {
                             if text.isEmpty {
-                                Text("Write a fragment")
+                                Text(replyTo == nil ? "Write a fragment" : "Write your reply")
                                     .font(theme.prose(.title3))
                                     .foregroundStyle(theme.soft)
                                     .padding(.top, 8)
@@ -140,10 +140,12 @@ struct ComposerView: View {
                             Text(label(for: step)).font(.footnote)
                         }
                     } else {
-                        Button("Post", action: post)
+                        let canPost = !(draft.isEmpty || linkIsInvalid || target == nil)
+                        // Text on blue only when enabled; disabled, the system's own grey reads properly.
+                        Button(action: post) { Text("Post").foregroundStyle(canPost ? AnyShapeStyle(theme.onPencil) : AnyShapeStyle(.secondary)) }
                             .buttonStyle(.borderedProminent)
                             .buttonBorderShape(.capsule)
-                            .disabled(draft.isEmpty || linkIsInvalid || target == nil)
+                            .disabled(!canPost)
                             .accessibilityIdentifier("postButton")
                     }
                 }

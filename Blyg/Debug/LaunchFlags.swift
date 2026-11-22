@@ -16,6 +16,8 @@ nonisolated enum LaunchFlags {
     static let openBlygs = "-openBlygs"
     /// `-connectToken <token>`: connect the seeded blyg with this token (fixtures only; never a real token).
     static let connectToken = "-connectToken"
+    /// Open the seeded blyg's own page at launch.
+    static let openBlyg = "-openBlyg"
     /// Open Settings (Appearance) at launch.
     static let openSettings = "-openSettings"
     /// With -openPost: open the reply composer for that post.

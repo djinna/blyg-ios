@@ -88,6 +88,7 @@ struct TimelineScreen: View {
                     Button { showingComposer = true } label: {
                         Label("New post", systemImage: "square.and.pencil")
                             .frame(maxWidth: .infinity)
+                            .foregroundStyle(theme.onPencil)
                     }
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.capsule)

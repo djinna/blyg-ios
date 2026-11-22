@@ -3,6 +3,7 @@ import SwiftUI
 /// One blyg: where it lives, and, if it's yours, connecting this phone so it can post.
 struct BlygDetailView: View {
     @Environment(LibraryModel.self) private var model
+    @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     let origin: URL
 
@@ -58,9 +59,12 @@ struct BlygDetailView: View {
                             if busy {
                                 ProgressView()
                             } else {
-                                Button("Connect", action: connect)
-                                    .buttonStyle(.borderedProminent)
-                                    .disabled(token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                let canConnect = !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                Button(action: connect) {
+                                    Text("Connect").foregroundStyle(canConnect ? AnyShapeStyle(theme.onPencil) : AnyShapeStyle(.secondary))
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(!canConnect)
                                     .accessibilityIdentifier("connectButton")
                             }
                         }

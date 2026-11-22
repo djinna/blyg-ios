@@ -50,6 +50,7 @@ struct RootView: View {
         }
         if LaunchFlags.has(LaunchFlags.openBlygs) { path = [.blygs] }
         if LaunchFlags.has(LaunchFlags.openSettings) { path = [.blygs, .settings] }
+        if LaunchFlags.has(LaunchFlags.openBlyg), let first = model.library.blygs.first { path = [.blygs, .blyg(first.origin)] }
         #endif
         await model.refreshAll()
     }

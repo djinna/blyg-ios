@@ -57,6 +57,13 @@ nonisolated struct Theme: Sendable {
     var sunk: Color { pick(studio: (0xEEF1F3, 0x1D2426), system: Color(.secondarySystemBackground)) }
     /// Links and editorial marks. In dark mode Studio's pencil is the icon's light blue.
     var pencil: Color { pick(studio: (0x23608C, 0x8CC0E4), system: Color(.link)) }
+    /// Text on a pencil-blue button. In dark mode the blue is light, so white text on it fails contrast:
+    /// use the dark page colour there instead (about 9:1 on #8CC0E4).
+    var onPencil: Color {
+        Color(UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(hex: 0x14191A) : .white
+        })
+    }
 
     private func pick(studio: (UInt32, UInt32), system: Color) -> Color {
         guard appearance == .studio else { return system }
