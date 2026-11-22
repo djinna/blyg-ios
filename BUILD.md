@@ -102,6 +102,7 @@
 - **The timeline is ordered by each post's claimed `updated` date, capped at when the app first saw that version** (§13.7), so a future-dated post can't stay on top. *Beat:* trusting the claimed date.
 
 
+- **No OAuth during the hackathon (2026-11-22).** It would let testers sign in with their Studio password instead of pasting a token, with no 30-day expiry. From reading Studio 0.65's code: it registers any app without approval, can issue REST tokens, and access tokens last an hour and renew. Still unknown: whether Studio will redirect back into an iOS app. The costs: an Associated Domains file on a domain we control, signing changes, every tester's Studio being new enough, and the app and the share sheet racing to renew one token. Paste stays as a fallback for App Review. Jenna will raise it with the group. *Beat:* building it this week.
 - **Single line breaks become Studio's backslash hard break (2026-11-22).** Studio's markdown-it joins single newlines, and a phone has no Shift+Enter.
   - The break is written exactly as Studio's own Shift+Enter writes it (`format-shortcuts.ts`), so Edit in Studio shows familiar markdown.
   - It applies only between two lines of one paragraph. A backslash at the end of a block shows literally, so lists, headings, setext underlines, fences, math and tables are left alone.
