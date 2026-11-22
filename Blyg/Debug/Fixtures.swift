@@ -64,6 +64,7 @@ nonisolated enum Fixtures {
     "content_html":"<p>Two notes, one thought.</p>\\n<blockquote class=\\"blyg-transclusion\\" data-blyg-id=\\"\(fragmentEdited)\\"><p>Reading about print on demand again. Margins matter more than fonts.</p></blockquote>\\n<p>Both are about pace.</p>\\n",\
     "content_hash":"sha256:0000000000000000000000000000000000000000000000000000000000000000","media":[],\
     "transclusions":[{"id":"\(fragmentEdited)","version":2}],\
+    "stub_of":{"origin":"https://sample.example/","id":"\(fragmentPlain)","version":1,"cited":{"source":"Sample Notes","excerpt":"First post. Does anyone still read RSS & does it matter?","retrieved":"2026-11-19T09:58:00Z"}},\
     "changelog":[{"version":1,"at":"2026-11-19T10:00:00Z","note":null}]}
     """
 

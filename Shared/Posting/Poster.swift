@@ -81,11 +81,14 @@ nonisolated struct Poster: Sendable {
         var version: Int
     }
 
-    func post(_ draft: PostDraft, step: @Sendable (PostStep) async -> Void = { _ in }) async throws(PostFailure) -> Result {
+    func post(_ draft: PostDraft, replyTo: ReplyTarget? = nil,
+              step: @Sendable (PostStep) async -> Void = { _ in }) async throws(PostFailure) -> Result {
         await step(.creating)
         let created: StudioItem
         do {
-            created = try await client.createItem(contentMd: PostMarkdown.compose(draft))
+            // A reply is a thread with stubOf; Studio refuses stubOf on a fragment.
+            created = try await client.createItem(contentMd: PostMarkdown.compose(draft),
+                                                  kind: replyTo == nil ? "fragment" : "thread", replyTo: replyTo)
         } catch {
             throw Self.failure(error, draftId: nil)
         }

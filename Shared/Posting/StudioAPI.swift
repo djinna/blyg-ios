@@ -32,6 +32,39 @@ nonisolated struct StudioMedia: Decodable, Sendable, Equatable {
     var revision: Int?
 }
 
+/// One of a Studio's subscriptions (`listSubscriptions`). Only blyg subscriptions are followed in the app.
+nonisolated struct StudioSubscription: Decodable, Sendable, Equatable {
+    var kind: String
+    var origin: String?
+    var title: String?
+}
+
+nonisolated struct StudioSubscriptionPage: Decodable, Sendable, Equatable {
+    var items: [StudioSubscription]
+    var page: Page
+    nonisolated struct Page: Decodable, Sendable, Equatable { var nextCursor: String? }
+}
+
+/// The post a reply answers, as the composer needs it. Sent as `stubOf` (spec §10.6); replies are threads,
+/// because Studio refuses a fragment with `stubOf` ("only threads can be stubs").
+nonisolated struct ReplyTarget: Sendable, Equatable, Hashable {
+    var origin: URL
+    var id: String
+    var version: Int
+    var blygTitle: String
+    var excerpt: String
+    var page: URL?
+
+    /// `{origin, id, version, cited}`. The citation is the label as seen now, frozen (§5.9); Studio may refine it.
+    func stubOf(retrieved: Date = .now) -> [String: Any] {
+        var cited: [String: Any] = ["source": blygTitle, "retrieved": retrieved.formatted(.iso8601)]
+        let excerpt = excerpt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !excerpt.isEmpty { cited["excerpt"] = excerpt.count > 200 ? String(excerpt.prefix(199)) + "…" : excerpt }
+        if let page { cited["url"] = page.absoluteString }
+        return ["origin": origin.absoluteString, "id": id, "version": version, "cited": cited]
+    }
+}
+
 nonisolated struct StudioPublishResult: Decodable, Sendable, Equatable {
     var ok: Bool
     var version: Double
@@ -96,8 +129,20 @@ nonisolated struct StudioClient: Sendable {
         try await send(Requests.getCapabilities(api: api, token: token))
     }
 
-    func createItem(contentMd: String, kind: String = "fragment") async throws -> StudioItem {
-        try await send(Requests.createItem(api: api, token: token, contentMd: contentMd, kind: kind))
+    func createItem(contentMd: String, kind: String = "fragment", replyTo: ReplyTarget? = nil) async throws -> StudioItem {
+        try await send(Requests.createItem(api: api, token: token, contentMd: contentMd, kind: kind, stubOf: replyTo?.stubOf()))
+    }
+
+    /// Every blyg subscription, following the cursor through each page.
+    func listSubscriptions() async throws -> [StudioSubscription] {
+        var all: [StudioSubscription] = []
+        var cursor: String?
+        repeat {
+            let page: StudioSubscriptionPage = try await send(Requests.listSubscriptions(api: api, token: token, cursor: cursor))
+            all += page.items
+            cursor = page.page.nextCursor
+        } while cursor != nil && all.count < 2000
+        return all
     }
 
     func updateItem(id: String, contentMd: String, expectedRevision: Int) async throws -> StudioItem {
@@ -143,9 +188,16 @@ nonisolated enum Requests {
         request("GET", api.appending(path: "capabilities"), token: token)
     }
 
-    static func createItem(api: URL, token: String, contentMd: String, kind: String) -> URLRequest {
-        json("POST", api.appending(path: "items"), token: token,
-             ["mode": "blank", "kind": kind, "contentMd": contentMd])
+    static func createItem(api: URL, token: String, contentMd: String, kind: String, stubOf: [String: Any]? = nil) -> URLRequest {
+        var body: [String: Any] = ["mode": "blank", "kind": kind, "contentMd": contentMd]
+        if let stubOf { body["stubOf"] = stubOf }
+        return json("POST", api.appending(path: "items"), token: token, body)
+    }
+
+    static func listSubscriptions(api: URL, token: String, cursor: String?) -> URLRequest {
+        var url = api.appending(path: "subscriptions")
+        if let cursor { url.append(queryItems: [URLQueryItem(name: "cursor", value: cursor)]) }
+        return request("GET", url, token: token)
     }
 
     static func updateItem(api: URL, token: String, id: String, contentMd: String, expectedRevision: Int) -> URLRequest {

@@ -10,6 +10,8 @@ struct BlygDetailView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var confirmingUnfollow = false
+    @State private var importing: (done: Int, total: Int)?
+    @State private var importResult: String?
 
     var body: some View {
         if let blyg = model.blyg(origin) {
@@ -27,6 +29,18 @@ struct BlygDetailView: View {
                     if model.isConnected(origin) {
                         Label("This phone can post here.", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
+                        if let importing {
+                            ProgressView(value: Double(importing.done), total: Double(max(importing.total, 1))) {
+                                Text("Following \(importing.done) of \(importing.total)…").font(.footnote)
+                            }
+                        } else {
+                            Button("Follow the blygs this Studio follows", action: importSubscriptions)
+                                .accessibilityIdentifier("importSubscriptionsButton")
+                        }
+                        if let importResult {
+                            Text(importResult).font(.footnote).foregroundStyle(.secondary)
+                        }
+                        Link("Open Studio", destination: origin.appending(path: "studio"))
                         Button("Disconnect", role: .destructive) { model.disconnect(origin) }
                             .accessibilityIdentifier("disconnectButton")
                     } else {
@@ -89,6 +103,26 @@ struct BlygDetailView: View {
             Text("Tokens last 30 days.").foregroundStyle(.secondary)
         }
         .font(.callout)
+    }
+
+    private func importSubscriptions() {
+        importResult = nil
+        importing = (0, 0)
+        Task {
+            do {
+                let result = try await model.importSubscriptions(from: origin) { done, total in importing = (done, total) }
+                var parts: [String] = []
+                parts.append(result.added == 1 ? "Followed 1 blyg." : "Followed \(result.added) blygs.")
+                if result.alreadyFollowing > 0 { parts.append("\(result.alreadyFollowing) already followed.") }
+                if result.skippedFeeds > 0 { parts.append("\(result.skippedFeeds) plain RSS feeds skipped.") }
+                if !result.failed.isEmpty { parts.append("Couldn't add: \(result.failed.joined(separator: ", ")).") }
+                importResult = parts.joined(separator: " ")
+            } catch {
+                importResult = (error as? StudioError).map { $0.status == 403 ? "This token can't read the Studio's subscriptions." : $0.message }
+                    ?? error.localizedDescription
+            }
+            importing = nil
+        }
     }
 
     private func connect() {

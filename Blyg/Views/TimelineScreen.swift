@@ -25,15 +25,12 @@ struct TimelineScreen: View {
                         .accessibilityIdentifier("blygsButton")
                     }
                 }
-                // Posting is the everyday action once a blyg is connected, so it takes the top-right spot;
-                // adding a blyg then lives in Your blygs (and the empty state).
-                ToolbarItem(placement: .topBarTrailing) {
-                    if model.postingBlygs.isEmpty {
+                // Before any blyg is connected, adding one is the main thing to do. After that, posting is,
+                // and it sits at the bottom (below) where a thumb reaches it; adding a blyg lives in Your blygs.
+                if model.postingBlygs.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button { showingAdd = true } label: { Label("Add a blyg", systemImage: "plus") }
                             .accessibilityIdentifier("addBlygButton")
-                    } else {
-                        Button { showingComposer = true } label: { Label("New post", systemImage: "square.and.pencil") }
-                            .accessibilityIdentifier("composeButton")
                     }
                 }
             }
@@ -85,6 +82,22 @@ struct TimelineScreen: View {
             .scrollContentBackground(.hidden)
             .background(theme.page)
             .refreshable { await model.refreshAll() }
+            // One-handed posting (tester request, build 2): a bar of its own, so it never sits over a post.
+            .safeAreaInset(edge: .bottom) {
+                if !model.postingBlygs.isEmpty {
+                    Button { showingComposer = true } label: {
+                        Label("New post", systemImage: "square.and.pencil")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.large)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(.bar)
+                    .accessibilityIdentifier("composeButton")
+                }
+            }
         }
     }
 
@@ -138,6 +151,11 @@ struct TimelineRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             apparatusLine
+            if let reply = entry.document.stubOf {
+                Label("Replying to \(reply.label)", systemImage: "arrowshape.turn.up.left")
+                    .font(theme.apparatus.italic())
+                    .foregroundStyle(theme.soft)
+            }
             if !entry.excerpt.isEmpty {
                 Text(entry.excerpt)
                     .font(theme.prose())

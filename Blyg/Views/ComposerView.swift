@@ -19,7 +19,11 @@ struct ComposerView: View {
     @State private var error: String?
     @FocusState private var textFocused: Bool
 
-    init(text: String = "", link: String = "", linkTitle: String = "") {
+    /// Set when replying: the post this answers.
+    let replyTo: ReplyTarget?
+
+    init(text: String = "", link: String = "", linkTitle: String = "", replyTo: ReplyTarget? = nil) {
+        self.replyTo = replyTo
         _text = State(initialValue: text)
         _link = State(initialValue: link)
         _linkTitle = State(initialValue: linkTitle)
@@ -43,6 +47,7 @@ struct ComposerView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    if let replyTo { replyHeader(replyTo) }
                     targetRow
                     TextEditor(text: $text)
                         .font(theme.prose(.title3))
@@ -122,7 +127,7 @@ struct ComposerView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(theme.page)
-            .navigationTitle("New fragment")
+            .navigationTitle(replyTo == nil ? "New fragment" : "Reply")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -152,10 +157,29 @@ struct ComposerView: View {
         }
     }
 
+    /// What this reply answers, in the apparatus voice with the editorial blue rule.
+    private func replyHeader(_ target: ReplyTarget) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label("Replying to \(target.blygTitle)", systemImage: "arrowshape.turn.up.left")
+                .font(theme.apparatus)
+                .foregroundStyle(theme.soft)
+            if !target.excerpt.isEmpty {
+                Text(target.excerpt)
+                    .font(theme.prose(.callout))
+                    .foregroundStyle(theme.ink)
+                    .lineLimit(3)
+                    .padding(.leading, 10)
+                    .overlay(alignment: .leading) { theme.pencil.frame(width: 2) }
+            }
+        }
+        .padding(.top, 12)
+        .accessibilityElement(children: .combine)
+    }
+
     /// "To [blyg]": a menu when more than one blyg is connected.
     private var targetRow: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("To").font(theme.apparatus).foregroundStyle(theme.soft)
+            Text(replyTo == nil ? "To" : "Reply from").font(theme.apparatus).foregroundStyle(theme.soft)
             if blygs.count > 1 {
                 Picker("Post to", selection: $target) {
                     ForEach(blygs) { blyg in Text(blyg.title).tag(Optional(blyg.origin)) }
@@ -239,7 +263,7 @@ struct ComposerView: View {
         step = .creating
         Task {
             do throws(PostFailure) {
-                _ = try await poster.post(draft) { newStep in
+                _ = try await poster.post(draft, replyTo: replyTo) { newStep in
                     await MainActor.run { step = newStep }
                 }
                 step = nil

@@ -95,6 +95,56 @@ nonisolated struct ItemDocument: Codable, Sendable, Hashable {
     var contentHTML: String
     var media: [Media]
     var changelog: [ChangelogEntry]
+    /// Set when this item is a reply: the one thing it answers (§10.6).
+    var stubOf: StubOf?
+
+    /// A reply's target (§10.6, §5.9): a blyg item `{origin, id, version}` or a plain web `{url}`,
+    /// with the citing publisher's frozen label. The label is self-asserted and shown as such.
+    nonisolated struct StubOf: Codable, Sendable, Hashable {
+        var origin: String?
+        var id: String?
+        var version: Int?
+        var url: String?
+        var cited: Cited?
+
+        nonisolated struct Cited: Codable, Sendable, Hashable {
+            var source: String?
+            var author: String?
+            var excerpt: String?
+            var url: String?
+            var retrieved: String?
+
+            init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                source = c.lenient(String.self, .source); author = c.lenient(String.self, .author)
+                excerpt = c.lenient(String.self, .excerpt); url = c.lenient(String.self, .url)
+                retrieved = c.lenient(String.self, .retrieved)
+            }
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            origin = c.lenient(String.self, .origin); id = c.lenient(String.self, .id)
+            version = c.lenient(Int.self, .version); url = c.lenient(String.self, .url)
+            cited = c.lenient(Cited.self, .cited)
+        }
+
+        /// What to call the target: the citation's source, else its host.
+        var label: String {
+            if let source = cited?.source?.trimmingCharacters(in: .whitespacesAndNewlines), !source.isEmpty { return source }
+            let address = (origin ?? url ?? "").trimmingCharacters(in: .whitespaces)
+            return URL(string: address)?.host() ?? address
+        }
+
+        /// Where tapping the target goes: the cited page, else the item's conventional page, else the URL.
+        var link: URL? {
+            if let page = cited?.url, let url = URL(string: page.trimmingCharacters(in: .whitespaces)) { return url }
+            if let origin, let id, let base = URL(string: origin.trimmingCharacters(in: .whitespaces)) {
+                return BlygURL.resolve("f/\(id)/", against: base)
+            }
+            return url.flatMap { URL(string: $0) }
+        }
+    }
 
     nonisolated struct Media: Codable, Sendable, Hashable {
         var url: String
@@ -124,13 +174,15 @@ nonisolated struct ItemDocument: Codable, Sendable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, kind, version, created, updated, origin, page, author, media, changelog
         case contentHTML = "content_html"
+        case stubOf = "stub_of"
     }
 
     init(id: String, kind: String, version: Int, created: String, updated: String, origin: String? = nil,
-         page: String? = nil, author: Author? = nil, contentHTML: String, media: [Media] = [], changelog: [ChangelogEntry] = []) {
+         page: String? = nil, author: Author? = nil, contentHTML: String, media: [Media] = [], changelog: [ChangelogEntry] = [],
+         stubOf: StubOf? = nil) {
         self.id = id; self.kind = kind; self.version = version; self.created = created; self.updated = updated
         self.origin = origin; self.page = page; self.author = author; self.contentHTML = contentHTML
-        self.media = media; self.changelog = changelog
+        self.media = media; self.changelog = changelog; self.stubOf = stubOf
     }
 
     init(from decoder: Decoder) throws {
@@ -146,6 +198,7 @@ nonisolated struct ItemDocument: Codable, Sendable, Hashable {
         contentHTML = c.lenient(String.self, .contentHTML) ?? ""
         media = (c.lenient([Lossy<Media>].self, .media) ?? []).compactMap(\.value)
         changelog = (c.lenient([Lossy<ChangelogEntry>].self, .changelog) ?? []).compactMap(\.value)
+        stubOf = c.lenient(StubOf.self, .stubOf)
     }
 
     /// Versions the publisher has promised to serve forever (§8). Only these may be offered as history (§8.4).

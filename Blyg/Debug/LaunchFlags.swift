@@ -18,6 +18,8 @@ nonisolated enum LaunchFlags {
     static let connectToken = "-connectToken"
     /// Open Settings (Appearance) at launch.
     static let openSettings = "-openSettings"
+    /// With -openPost: open the reply composer for that post.
+    static let openReply = "-openReply"
     /// Open the composer at launch.
     static let openComposer = "-openComposer"
 

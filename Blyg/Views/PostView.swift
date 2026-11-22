@@ -3,8 +3,16 @@ import WebKit
 
 struct PostView: View {
     let entry: TimelineEntry
+    @Environment(LibraryModel.self) private var model
     @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
+    @State private var replying = false
+
+    /// The post as a reply target: what Reply sends as `stubOf`.
+    private var replyTarget: ReplyTarget {
+        ReplyTarget(origin: entry.origin, id: entry.document.id, version: entry.document.version,
+                    blygTitle: entry.blygTitle, excerpt: entry.excerpt, page: pageURL)
+    }
 
     private var pageURL: URL? { BlygURL.page(for: entry.document, origin: entry.origin) }
 
@@ -14,16 +22,35 @@ struct PostView: View {
         }
         .accessibilityIdentifier("postWebView")
         .background(theme.page.ignoresSafeArea())
+        .sheet(isPresented: $replying) { ComposerView(replyTo: replyTarget) }
+        #if DEBUG
+        .task { if LaunchFlags.has(LaunchFlags.openReply) { replying = true } }
+        #endif
         .navigationTitle(entry.blygTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if let pageURL {
+            if !model.postingBlygs.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(item: pageURL)
+                    Button { replying = true } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
+                        .accessibilityIdentifier("replyButton")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { openURL(pageURL) } label: { Label("Open in Safari", systemImage: "safari") }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if let pageURL {
+                        ShareLink(item: pageURL)
+                        Button { openURL(pageURL) } label: { Label("Open in Safari", systemImage: "safari") }
+                    }
+                    if model.isConnected(entry.origin) {
+                        // Studio's own editor does what this app doesn't: edits, threads, pins, withdrawal.
+                        Button { openURL(entry.origin.appending(path: "studio")) } label: {
+                            Label("Edit in Studio", systemImage: "slider.horizontal.3")
+                        }
+                    }
+                } label: {
+                    Label("More", systemImage: "ellipsis")
                 }
+                .accessibilityIdentifier("postMoreMenu")
             }
         }
     }
@@ -44,6 +71,14 @@ nonisolated enum PostPage {
         if let posted { byline.append(posted) }
         if document.version > 1, let updated, updated != posted { byline.append("updated \(updated)") }
         let kind = document.kind == ItemKind.thread.rawValue ? "<span class=\"kind\">Thread</span> · " : ""
+        var replying = ""
+        if let reply = document.stubOf {
+            // The citation is the replier's own label, frozen when they replied (§5.9): shown as theirs, never as verified.
+            let label = HTMLText.escape(reply.label)
+            let target = reply.link.map { "<a href=\"\(HTMLText.escape($0.absoluteString))\">\(label)</a>" } ?? label
+            let excerpt = reply.cited?.excerpt?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            replying = "<p class=\"replying\">Replying to \(target)</p>" + (excerpt.isEmpty ? "" : "<p class=\"cited\">\(HTMLText.escape(excerpt))</p>")
+        }
 
         var history = ""
         if document.version > 1 || !document.pinnedVersions.isEmpty {
@@ -73,7 +108,7 @@ nonisolated enum PostPage {
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'">
         <style>\(theme.css)</style></head><body>
-        <header class="apparatus"><p class="blyg">\(kind)\(HTMLText.escape(entry.blygTitle))</p><p>\(byline.joined(separator: " · "))</p></header>
+        <header class="apparatus"><p class="blyg">\(kind)\(HTMLText.escape(entry.blygTitle))</p><p>\(byline.joined(separator: " · "))</p>\(replying)</header>
         <article>\(document.contentHTML)</article>
         <footer>\(history)\(permalink)</footer>
         </body></html>

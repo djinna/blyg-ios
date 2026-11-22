@@ -271,3 +271,77 @@ struct LinkCheckTests {
         #expect(LinkCheck.fragmentLooksSecret(URL(string: link)) == expected)
     }
 }
+
+@Suite("Replies and subscriptions")
+@MainActor
+struct ReplyTests {
+    let target = ReplyTarget(origin: URL(string: "https://other.example/")!, id: "abc123", version: 3,
+                             blygTitle: "Other Notes", excerpt: String(repeating: "x", count: 250),
+                             page: URL(string: "https://other.example/f/abc123/"))
+
+    @Test func aReplyIsAThreadWithStubOf() throws {
+        let stub = target.stubOf(retrieved: Date(timeIntervalSince1970: 1_800_000_000))
+        let req = Requests.createItem(api: SandboxResponses.api, token: "t", contentMd: "Yes, and", kind: "thread", stubOf: stub)
+        let data = try #require(req.httpBody)
+        let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(json["kind"] as? String == "thread")
+        let sent = try #require(json["stubOf"] as? [String: Any])
+        #expect(sent["origin"] as? String == "https://other.example/") // absolute, trailing slash
+        #expect(sent["id"] as? String == "abc123")
+        #expect(sent["version"] as? Int == 3)
+        let cited = try #require(sent["cited"] as? [String: Any])
+        #expect(cited["source"] as? String == "Other Notes")
+        #expect((cited["excerpt"] as? String)?.count == 200) // a caption, capped near 200 (§5.9)
+        #expect(cited["retrieved"] as? String == "2027-01-15T08:00:00Z")
+        #expect(cited["url"] as? String == "https://other.example/f/abc123/")
+    }
+
+    @Test func posterSendsRepliesAsThreads() async throws {
+        let transport = SandboxResponses.happyPath()
+        let poster = Poster(client: StudioClient(api: SandboxResponses.api, token: "t", transport: transport), origin: SandboxResponses.origin)
+        _ = try await poster.post(PostDraft(text: "Yes, and"), replyTo: target)
+        let first = try #require(transport.sent.first?.httpBody)
+        let body = try #require(JSONSerialization.jsonObject(with: first) as? [String: Any])
+        #expect(body["kind"] as? String == "thread")
+        #expect(body["stubOf"] != nil)
+        _ = try await poster.post(PostDraft(text: "Plain"))
+        let third = try #require(transport.sent[2].httpBody)
+        let plain = try #require(JSONSerialization.jsonObject(with: third) as? [String: Any])
+        #expect(plain["kind"] as? String == "fragment")
+        #expect(plain["stubOf"] == nil)
+    }
+
+    @Test func stubOfDecodesAsTheSandboxPublishedIt() throws {
+        // The public item document of a reply published on the sandbox, 2026-11-22.
+        let doc = try decode(ItemDocument.self, #"{"id":"r1","kind":"thread","version":1,"created":"2026-11-22T14:17:30Z","updated":"2026-11-22T14:17:30Z","content_html":"<p>Probe reply.</p>","stub_of":{"origin":"https://blyg-sandbox.exe.xyz/","id":"1k2q07a2hvx3z3pq8dr82h4mfg","version":1,"cited":{"source":"Blyg sandbox","excerpt":"sandbox post tap tap tap","url":"https://blyg-sandbox.exe.xyz/f/1k2q07a2hvx3z3pq8dr82h4mfg/","retrieved":"2026-11-22T14:17:30Z"}}}"#)
+        let stub = try #require(doc.stubOf)
+        #expect(stub.label == "Blyg sandbox")
+        #expect(stub.link?.absoluteString == "https://blyg-sandbox.exe.xyz/f/1k2q07a2hvx3z3pq8dr82h4mfg/")
+        let entry = TimelineEntry(origin: SandboxResponses.origin, blygTitle: "Blyg sandbox", document: doc, sortDate: .now, excerpt: "", imageURL: nil)
+        let html = PostPage.html(for: entry, pageURL: nil, theme: Theme(appearance: .studio))
+        #expect(html.contains("Replying to <a href=\"https://blyg-sandbox.exe.xyz/f/1k2q07a2hvx3z3pq8dr82h4mfg/\">Blyg sandbox</a>"))
+        // A bare {url} stub with no citation still has something to show.
+        let web = try decode(ItemDocument.StubOf.self, #"{"url":"https://news.example/story"}"#)
+        #expect(web.label == "news.example")
+    }
+
+    @Test func followingAStudiosSubscriptionsAddsBlygsOnly() async throws {
+        let tokens = MemoryTokenStore()
+        let fetcher = FakeFetcher.sample()
+        fetcher.set("https://second.example/blyg.json", .init(body: #"{"blyg":"0.4","title":"Second"}"#))
+        fetcher.set("https://second.example/items/index.json", .init(body: #"{"items":[]}"#))
+        let transport = FakeTransport([
+            "GET https://sample.example/api/capabilities": (200, SandboxResponses.capabilities.replacingOccurrences(of: "blyg-sandbox.exe.xyz", with: "sample.example")),
+            "GET https://sample.example/api/subscriptions": (200, #"{"items":[{"kind":"blyg","origin":"https://second.example/","title":"Second"},{"kind":"blyg","origin":"https://sample.example/","title":"Sample"},{"kind":"rss","feedUrl":"https://feeds.example/x.xml","title":"A feed"},{"kind":"blyg","origin":"https://gone.example/","title":"Gone"}],"page":{"limit":100,"nextCursor":null}}"#),
+        ])
+        let model = LibraryModel(store: nil, fetcher: fetcher, tokens: tokens, transport: transport)
+        try await model.add("sample.example")
+        try await model.connect(Fixtures.origin, token: "secret")
+        let result = try await model.importSubscriptions(from: Fixtures.origin)
+        #expect(result.added == 1)
+        #expect(result.alreadyFollowing == 1)
+        #expect(result.skippedFeeds == 1)
+        #expect(result.failed == ["gone.example"])
+        #expect(model.library.blygs.map(\.origin.absoluteString) == ["https://sample.example/", "https://second.example/"])
+    }
+}

@@ -120,6 +120,8 @@ nonisolated struct Theme: Sendable {
         .apparatus p { margin: 0; }
         .apparatus .blyg { color: var(--ink); }
         .apparatus { margin-bottom: 1.4em; }
+        .apparatus .replying { margin-top: 0.5em; font-style: italic; }
+        .apparatus .cited { margin: 0.2em 0 0; padding-left: 0.7em; border-left: 2px solid var(--pencil); }
         .kind { color: var(--pencil); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.92em; }
         .history { margin-top: 1.6em; padding-top: 1em; border-top: 1px solid var(--rule); }
         .history p { margin: 0; }

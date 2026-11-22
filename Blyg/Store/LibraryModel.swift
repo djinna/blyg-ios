@@ -133,6 +133,44 @@ final class LibraryModel {
         save()
     }
 
+    /// What following a Studio's subscriptions did, for the person to read.
+    struct ImportResult: Equatable {
+        var added = 0
+        var alreadyFollowing = 0
+        var failed: [String] = []
+        var skippedFeeds = 0
+    }
+
+    /// Follows, in this app, the blygs the connected Studio subscribes to. Plain RSS subscriptions are skipped:
+    /// this app reads blygs. Added one at a time, so a big list doesn't flood anyone's server.
+    func importSubscriptions(from origin: URL, progress: (Int, Int) -> Void = { _, _ in }) async throws -> ImportResult {
+        guard let blyg = blyg(origin), let api = blyg.postingAPI, let token = tokens.token(for: origin) else {
+            throw ConnectFailure.other("Connect this blyg first.")
+        }
+        let subscriptions = try await StudioClient(api: api, token: token, transport: transport).listSubscriptions()
+        var result = ImportResult()
+        let blygs = subscriptions.filter { $0.kind == "blyg" }
+        result.skippedFeeds = subscriptions.count - blygs.count
+        let candidates = blygs.compactMap { $0.origin.flatMap { URL(string: $0.trimmingCharacters(in: .whitespaces)) } }
+        for (index, candidate) in candidates.enumerated() {
+            progress(index, candidates.count)
+            if library.blygs.contains(where: { $0.origin == candidate }) {
+                result.alreadyFollowing += 1
+                continue
+            }
+            do {
+                // Resolution can land on an origin already followed under another spelling: count what changed.
+                let before = library.blygs.count
+                try await add(candidate.absoluteString)
+                if library.blygs.count > before { result.added += 1 } else { result.alreadyFollowing += 1 }
+            } catch {
+                result.failed.append(candidate.host() ?? candidate.absoluteString)
+            }
+        }
+        progress(candidates.count, candidates.count)
+        return result
+    }
+
     func poster(for origin: URL) -> Poster? {
         guard let blyg = blyg(origin), let api = blyg.postingAPI, let token = tokens.token(for: origin) else { return nil }
         return Poster(client: StudioClient(api: api, token: token, transport: transport), origin: origin)
