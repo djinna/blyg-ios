@@ -42,7 +42,7 @@ nonisolated enum PostMarkdown {
     /// The fragment's markdown: the author's text, then the link on its own paragraph.
     static func compose(_ draft: PostDraft) -> String {
         var parts: [String] = []
-        let text = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = LineBreaks.keep(draft.text.trimmingCharacters(in: .whitespacesAndNewlines))
         if !text.isEmpty { parts.append(text) }
         if let link = draft.link {
             let title = draft.linkTitle.trimmingCharacters(in: .whitespacesAndNewlines)

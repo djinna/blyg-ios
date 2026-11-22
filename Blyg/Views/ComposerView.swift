@@ -110,7 +110,7 @@ struct ComposerView: View {
                                 .frame(minHeight: 44)
                         }
                     }
-                    Text("Markdown · leave a blank line between paragraphs · \(text.unicodeScalars.count) characters")
+                    Text("Markdown · line breaks are kept · a blank line starts a paragraph · \(text.unicodeScalars.count) characters")
                         .font(theme.apparatus)
                         .foregroundStyle(theme.soft)
                         .padding(.top, 14)

@@ -129,6 +129,28 @@ struct PosterTests {
         #expect(!PostMarkdown.compose(PostDraft(text: "x", link: link)).contains("]()"))
     }
 
+    /// Each case was rendered with Studio 0.65's own `renderMarkdown` on the sandbox (2026-11-22): changed cases gain a
+    /// `<br>`, and no case shows a literal backslash.
+    @Test(arguments: [
+        ("Roses are red\nviolets are blue", "Roses are red\\\nviolets are blue"),
+        ("One\ntwo\n\nNew para", "One\\\ntwo\n\nNew para"),
+        ("- a\n- b\n  continued", "- a\n- b\\\n  continued"),
+        ("# Heading\nbody", "# Heading\nbody"),
+        ("Title\n===\nafter", "Title\n===\nafter"),
+        ("> quoted\n> lines", "> quoted\\\n> lines"),
+        ("plain\n> quote", "plain\n> quote"),
+        ("```\ncode\nmore\n```\nafter\nend", "```\ncode\nmore\n```\nafter\\\nend"),
+        ("$$\na=b\nc=d\n$$", "$$\na=b\nc=d\n$$"),
+        ("a | b\n--- | ---\nc | d", "a | b\n--- | ---\nc | d"),
+        ("already\\\nbroken", "already\\\nbroken"),
+        ("trailing   \nspaces", "trailing   \nspaces"),
+        ("    code\n    more", "    code\n    more"),
+        ("* * *\nnext", "* * *\nnext"),
+    ])
+    func singleLineBreaksAreKept(typed: String, posted: String) {
+        #expect(LineBreaks.keep(typed) == posted)
+    }
+
     @Test func imagesUnderTheBlygAreOriginRelative() {
         #expect(PostMarkdown.image(alt: "a dot", mediaURL: "https://blyg-sandbox.exe.xyz/media/r1/abc.png", origin: SandboxResponses.origin)
                 == "![a dot](media/r1/abc.png)")
@@ -343,6 +365,26 @@ struct ReplyTests {
         #expect(result.skippedFeeds == 1)
         #expect(result.failed == ["gone.example"])
         #expect(model.library.blygs.map(\.origin.absoluteString) == ["https://sample.example/", "https://second.example/"])
+    }
+
+    @Test func comingBackRefreshesYourOwnBlygSoonerThanOthers() async throws {
+        let fetcher = FakeFetcher.sample()
+        fetcher.set("https://second.example/blyg.json", .init(body: #"{"blyg":"0.4","title":"Second"}"#))
+        fetcher.set("https://second.example/items/index.json", .init(body: #"{"items":[]}"#))
+        let transport = FakeTransport([
+            "GET https://sample.example/api/capabilities": (200, SandboxResponses.capabilities.replacingOccurrences(of: "blyg-sandbox.exe.xyz", with: "sample.example")),
+        ])
+        let model = LibraryModel(store: nil, fetcher: fetcher, tokens: MemoryTokenStore(), transport: transport)
+        try await model.add("sample.example")
+        try await model.add("second.example")
+        try await model.connect(Fixtures.origin, token: "secret")
+        func manifestFetches() -> [String] { fetcher.requested.filter { $0.hasSuffix("blyg.json") } }
+        let before = manifestFetches()
+        await model.refreshStale(now: .now.addingTimeInterval(60)) // a minute on: only the connected one
+        #expect(manifestFetches().count == before.count + 1)
+        #expect(manifestFetches().last == "https://sample.example/blyg.json")
+        await model.refreshStale(now: .now.addingTimeInterval(20 * 60)) // much later: both
+        #expect(manifestFetches().count == before.count + 3)
     }
 }
 
