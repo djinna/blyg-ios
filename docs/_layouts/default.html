@@ -7,26 +7,42 @@
 <meta name="description" content="Blyglet: a little iPhone app for posting to your blyg, from anywhere on your phone.">
 <link rel="icon" href="{{ '/icon.png' | relative_url }}">
 <link rel="apple-touch-icon" href="{{ '/icon.png' | relative_url }}">
+<script src="{{ '/assets/switcher.js' | relative_url }}"></script>
+<link rel="stylesheet" href="{{ '/assets/fonts.css' | relative_url }}">
 <style>
-/* Blyglet's Studio look: a serif for reading, a small sans for the apparatus, pencil blue for marks. */
-:root {
-  --page: #fafbfb; --ink: #1b2426; --soft: #5c686b; --rule: #dde3e5; --sunk: #eef1f3;
-  --pencil: #23608c; --on-pencil: #ffffff;
-  color-scheme: light dark;
-}
+/* Blyglet's look: a serif for reading, a small sans for the apparatus, the theme's pencil for marks.
+   Colours are the app's own themes (Blyg/Theme/Theme.swift); the switcher (assets/switcher.js) sets
+   data-palette, data-font, and .light or .dark on <html>. */
+:root { color-scheme: light; --prose: "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, serif; --prose-size: 18px; }
+:root[data-palette="blue"], :root:not([data-palette]) { --page: #fafbfb; --ink: #1b2426; --soft: #5c686b; --rule: #dde3e5; --sunk: #eef1f3; --pencil: #23608c; --on-pencil: #ffffff; }
+:root[data-palette="pink"] { --page: #fdf7f8; --ink: #2a1e21; --soft: #6b5a5f; --rule: #efdce0; --sunk: #f8eaed; --pencil: #a3324f; --on-pencil: #ffffff; }
+:root[data-palette="moss"] { --page: #f7faf5; --ink: #1d261c; --soft: #586555; --rule: #dce5d8; --sunk: #edf3ea; --pencil: #3a6b3f; --on-pencil: #ffffff; }
+:root[data-palette="butter"] { --page: #fffbea; --ink: #2a2618; --soft: #655e45; --rule: #ede4c2; --sunk: #f7efcf; --pencil: #7d5a00; --on-pencil: #ffffff; }
 @media (prefers-color-scheme: dark) {
-  :root { --page: #14191a; --ink: #e3e7e7; --soft: #95a2a5; --rule: #2b3436; --sunk: #1d2426;
-          --pencil: #8cc0e4; --on-pencil: #14191a; }
+  :root:not(.light)[data-palette="blue"], :root:not(.light):not([data-palette]) { --page: #14191a; --ink: #e3e7e7; --soft: #95a2a5; --rule: #2b3436; --sunk: #1d2426; --pencil: #8cc0e4; --on-pencil: #14191a; color-scheme: dark; }
+  :root:not(.light)[data-palette="pink"] { --page: #1a1416; --ink: #f1e6e8; --soft: #ab989d; --rule: #3a2c30; --sunk: #251c1f; --pencil: #f4a7b6; --on-pencil: #1a1416; color-scheme: dark; }
+  :root:not(.light)[data-palette="moss"] { --page: #141a14; --ink: #e4ebe2; --soft: #98a595; --rule: #2b352a; --sunk: #1d251c; --pencil: #a8d3a0; --on-pencil: #141a14; color-scheme: dark; }
+  :root:not(.light)[data-palette="butter"] { --page: #1a1810; --ink: #f2ecd6; --soft: #a9a285; --rule: #37321f; --sunk: #24211a; --pencil: #f3e3a6; --on-pencil: #1a1810; color-scheme: dark; }
 }
+:root.dark[data-palette="blue"] { --page: #14191a; --ink: #e3e7e7; --soft: #95a2a5; --rule: #2b3436; --sunk: #1d2426; --pencil: #8cc0e4; --on-pencil: #14191a; color-scheme: dark; }
+:root.dark[data-palette="pink"] { --page: #1a1416; --ink: #f1e6e8; --soft: #ab989d; --rule: #3a2c30; --sunk: #251c1f; --pencil: #f4a7b6; --on-pencil: #1a1416; color-scheme: dark; }
+:root.dark[data-palette="moss"] { --page: #141a14; --ink: #e4ebe2; --soft: #98a595; --rule: #2b352a; --sunk: #1d251c; --pencil: #a8d3a0; --on-pencil: #141a14; color-scheme: dark; }
+:root.dark[data-palette="butter"] { --page: #1a1810; --ink: #f2ecd6; --soft: #a9a285; --rule: #37321f; --sunk: #24211a; --pencil: #f3e3a6; --on-pencil: #1a1810; color-scheme: dark; }
+:root[data-font="blyglet"] { --prose: "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, serif;  }
+:root[data-font="jetbrains"] { --prose: "JetBrains Mono", ui-monospace, Menlo, monospace; --prose-size: 16px; }
+:root[data-font="martian"] { --prose: "Martian Mono", ui-monospace, Menlo, monospace; --prose-size: 15px; }
+:root[data-font="plex"] { --prose: "IBM Plex Sans", -apple-system, sans-serif;  }
+:root[data-font="geist"] { --prose: "Geist", -apple-system, sans-serif;  }
+:root[data-font="literata"] { --prose: "Literata", Georgia, serif;  }
+:root[data-font="ibm-serif"] { --prose: "IBM Plex Serif", Georgia, serif;  }
+:root[data-font="source-serif"] { --prose: "Source Serif 4", Georgia, serif;  }
+:root[data-font="newsreader"] { --prose: "Newsreader", Georgia, serif;  }
 * { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--page); color: var(--ink);
-  font: 18px/1.65 "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, serif;
-}
+body { margin: 0; background: var(--page); color: var(--ink); font: var(--prose-size)/1.65 var(--prose); }
 main { max-width: 40rem; margin: 0 auto; padding: 0 1rem 4rem; }
 a { color: var(--pencil); text-underline-offset: 0.15em; }
 nav, footer, .apparatus { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--soft); }
-nav { max-width: 40rem; margin: 0 auto; padding: 1rem; display: flex; gap: 1.2rem; align-items: center; }
+nav { max-width: 40rem; margin: 0 auto; padding: 1rem; display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; align-items: center; }
 nav a { color: var(--soft); text-decoration: none; }
 nav a:hover { color: var(--pencil); }
 nav .home { margin-right: auto; display: flex; align-items: center; gap: 0.5rem; color: var(--ink); font-weight: 600; }
@@ -47,6 +63,51 @@ code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: 
 .hero .apparatus { margin-top: 0.75rem; }
 footer { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; border-top: 1px solid var(--rule); }
 footer p { margin: 0.3rem 0; }
+
+/* The switcher: plain text controls in the nav, a list that drops below. */
+.theme-bar { position: relative; display: flex; align-items: center; gap: 0.65rem; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.theme-bar button { font: inherit; color: var(--soft); background: none; border: none; padding: 0; cursor: pointer; }
+.theme-bar .font-name { white-space: nowrap; }
+.theme-bar .font-name:hover, .theme-bar .dark-btn:hover { color: var(--ink); }
+.theme-bar .font-name::before { content: "Aa "; opacity: 0.7; }
+.theme-bar .font-name::after { content: " \25BE"; opacity: 0.7; }
+.theme-bar.expanded .font-name::after { content: " \25B4"; }
+.theme-bar .font-options {
+  display: none; position: absolute; top: calc(100% + 9px); right: 0; z-index: 80;
+  width: 300px; max-height: 70vh; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px;
+  background: var(--page); border-top: 1px solid var(--soft); border-bottom: 1px solid var(--soft);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.12);
+}
+.theme-bar.expanded .font-options { display: block; }
+.theme-opt-group + .theme-opt-group { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); }
+.theme-opt-label { padding: 0 0 8px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); }
+.theme-bar .theme-opt { --opt-name-size: 16px; --opt-sample-size: 17px; display: block; width: 100%; padding: 7px 0; text-align: left; }
+.theme-opt-main { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: var(--opt-name-size); white-space: nowrap; }
+.theme-current { color: var(--pencil); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.theme-sample { display: block; margin-top: 2px; font-size: var(--opt-sample-size); line-height: 1.22; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme-bar .theme-opt:hover .theme-opt-name { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.theme-bar .theme-opt.active { color: var(--pencil); }
+.theme-opt[data-font="jetbrains"] { --opt-name-size: 14px; --opt-sample-size: 14px; }
+.theme-opt[data-font="martian"] { --opt-name-size: 13px; --opt-sample-size: 13px; }
+.theme-opt[data-font="blyglet"] .theme-opt-name, .theme-opt[data-font="blyglet"] .theme-sample { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, serif; }
+.theme-opt[data-font="jetbrains"] .theme-opt-name, .theme-opt[data-font="jetbrains"] .theme-sample { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+.theme-opt[data-font="martian"] .theme-opt-name, .theme-opt[data-font="martian"] .theme-sample { font-family: "Martian Mono", ui-monospace, Menlo, monospace; }
+.theme-opt[data-font="plex"] .theme-opt-name, .theme-opt[data-font="plex"] .theme-sample { font-family: "IBM Plex Sans", -apple-system, sans-serif; }
+.theme-opt[data-font="geist"] .theme-opt-name, .theme-opt[data-font="geist"] .theme-sample { font-family: "Geist", -apple-system, sans-serif; }
+.theme-opt[data-font="literata"] .theme-opt-name, .theme-opt[data-font="literata"] .theme-sample { font-family: "Literata", Georgia, serif; }
+.theme-opt[data-font="ibm-serif"] .theme-opt-name, .theme-opt[data-font="ibm-serif"] .theme-sample { font-family: "IBM Plex Serif", Georgia, serif; }
+.theme-opt[data-font="source-serif"] .theme-opt-name, .theme-opt[data-font="source-serif"] .theme-sample { font-family: "Source Serif 4", Georgia, serif; }
+.theme-opt[data-font="newsreader"] .theme-opt-name, .theme-opt[data-font="newsreader"] .theme-sample { font-family: "Newsreader", Georgia, serif; }
+.palette-note { margin: -2px 0 7px; font-size: 11px; color: var(--soft); }
+.theme-opt[data-palette] .theme-opt-name { display: inline-flex; align-items: center; gap: 9px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.palette-swatch { width: 13px; height: 13px; border: 1px solid var(--soft); }
+.theme-opt[data-palette="blue"] .palette-swatch { background: #23608c; }
+.theme-opt[data-palette="pink"] .palette-swatch { background: #f4c7cf; }
+.theme-opt[data-palette="moss"] .palette-swatch { background: #cde3c6; }
+.theme-opt[data-palette="butter"] .palette-swatch { background: #f3e3a6; }
+.theme-sep { width: 1px; height: 14px; background: var(--rule); }
+.theme-bar .dark-btn { font-size: 14px; }
+@media (max-width: 640px) { .theme-bar .font-options { left: 0; right: auto; width: min(300px, calc(100vw - 2rem)); } }
 </style>
 </head>
 <body>
@@ -55,6 +116,7 @@ footer p { margin: 0.3rem 0; }
   <a href="{{ '/#support' | relative_url }}">Support</a>
   <a href="{{ '/privacy.html' | relative_url }}">Privacy</a>
   <a href="https://github.com/djinna/blyg-ios">Source</a>
+  <div id="theme-bar"></div>
 </nav>
 <main>
 {{ content }}
