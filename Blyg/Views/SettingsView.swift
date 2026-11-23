@@ -94,8 +94,8 @@ struct SettingsView: View {
             Section("About") {
                 LabeledContent("Version", value: Self.version)
                     .accessibilityIdentifier("aboutVersion")
-                Link("Help", destination: URL(string: "https://djinna.github.io/blyg-ios/")!)
-                Link("Privacy", destination: URL(string: "https://djinna.github.io/blyg-ios/privacy.html")!)
+                Link("Help", destination: URL(string: "https://blyglet.com/")!)
+                Link("Privacy", destination: URL(string: "https://blyglet.com/privacy.html")!)
                 Link("Source code", destination: URL(string: "https://github.com/djinna/blyg-ios")!)
             }
         }

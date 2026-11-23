@@ -43,8 +43,8 @@ struct BlygsView: View {
         }
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: 24) {
-                Link("Help", destination: URL(string: "https://djinna.github.io/blyg-ios/")!)
-                Link("Privacy", destination: URL(string: "https://djinna.github.io/blyg-ios/privacy.html")!)
+                Link("Help", destination: URL(string: "https://blyglet.com/")!)
+                Link("Privacy", destination: URL(string: "https://blyglet.com/privacy.html")!)
             }
             .font(.footnote)
             .padding(.vertical, 8)
