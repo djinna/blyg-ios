@@ -32,7 +32,7 @@ nonisolated struct Theme: Sendable {
         }
     }
 
-    /// The masthead ("Blyg"): display size, regular weight in the serif, bold in San Francisco.
+    /// The masthead ("Blyglet"): display size, regular weight in the serif, bold in San Francisco.
     var masthead: Font {
         switch appearance {
         case .studio: .custom("Iowan Old Style", size: 34, relativeTo: .largeTitle)

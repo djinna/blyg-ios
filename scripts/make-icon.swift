@@ -1,4 +1,4 @@
-// Draws Blyg's app icon: an opening double quote mark ("66"), drawn as shapes so no font or SF Symbol is involved.
+// Draws Blyglet's app icon: an opening double quote mark ("66"), drawn as shapes so no font or SF Symbol is involved.
 // Colours follow Blygger Studio's header (dark mode): light blue ground, near-black mark. The dark variant swaps them.
 // Usage: swift scripts/make-icon.swift Blyg/Assets.xcassets/AppIcon.appiconset
 import AppKit

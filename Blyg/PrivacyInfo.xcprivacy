@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Blyg collects nothing and tracks no one. It fetches public blyg files (the blygs the user adds, and posts on other blygs that those posts link to) and media in posts. -->
+	<!-- Blyglet (target Blyg) collects nothing and tracks no one. It fetches public blyg files (the blygs the user adds, and posts on other blygs that those posts link to) and media in posts. -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>

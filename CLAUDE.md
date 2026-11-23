@@ -1,6 +1,6 @@
 # blyg-ios (all agents)
 
-*Blyg: an iPhone app for reading and posting to blygs (the Blygger protocol, blygger.org). Built for the Blygger hackathon, 2026-11-20 to 11-27. Layers on Jenna's global rules and `ios.md` in the `djinna/agents` repo; this file wins where they differ. One bullet per line; no hard wraps.*
+*Blyglet (called Blyg until 2026-11-22): a little iPhone app for posting to blygs and reading them (the Blygger protocol, blygger.org). Only the name people see changed: the bundle ID, repo, targets, scheme, folders and the on-phone library folder keep `Blyg` on purpose (see `BUILD.md` Decisions). Built for the Blygger hackathon, 2026-11-20 to 11-27. Layers on Jenna's global rules and `ios.md` in the `djinna/agents` repo; this file wins where they differ. One bullet per line; no hard wraps.*
 
 - **Status:** current state, versions and decisions are in `BUILD.md`. The working plan is `PLAN_2026-11-20.md`. It's local only and kept out of git through `.git/info/exclude`, because it names work accounts. Its section 0 holds Jenna's answers and wins. Build in the order of its section 6, stopping at each ✓ to show Jenna screenshots in light, dark and the largest text size.
 - **This repo is public from the first commit.** Never commit tokens, `.env`, personal data, or anything naming Jenna's work accounts or work projects. Before every commit, grep the staged diff (`git diff --cached`) for tokens (`gho_`, `Bearer`, `token`), `.env` and work names. A public history can't be cleaned.

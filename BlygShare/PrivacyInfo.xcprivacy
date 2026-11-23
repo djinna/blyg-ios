@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Blyg collects nothing and tracks no one. The share extension sends only to the blyg the user posts to. -->
+	<!-- Blyglet (target Blyg) collects nothing and tracks no one. The share extension sends only to the blyg the user posts to. -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>

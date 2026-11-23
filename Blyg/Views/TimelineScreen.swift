@@ -8,7 +8,7 @@ struct TimelineScreen: View {
 
     var body: some View {
         content
-            .navigationTitle("Blyg")
+            .navigationTitle("Blyglet")
             // With posts showing, the masthead row carries the name, so the bar stays small.
             .navigationBarTitleDisplayMode(model.timeline.isEmpty ? .large : .inline)
             .toolbar {
@@ -63,7 +63,7 @@ struct TimelineScreen: View {
             List {
                 masthead
                 if model.loadProblem != nil {
-                    notice("Your saved copy couldn't be read, so Blyg loaded its backup.", systemImage: "exclamationmark.triangle")
+                    notice("Your saved copy couldn't be read, so Blyglet loaded its backup.", systemImage: "exclamationmark.triangle")
                 }
                 ForEach(model.library.blygs.filter { $0.lastError != nil }) { blyg in
                     notice("Couldn't refresh \(blyg.title). \(blyg.lastError ?? "") Showing the saved copy.", systemImage: "wifi.exclamationmark")
@@ -105,7 +105,7 @@ struct TimelineScreen: View {
     /// Studio's masthead: the name at display size, then one apparatus line.
     private var masthead: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Blyg")
+            Text("Blyglet")
                 .font(theme.masthead)
                 .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)

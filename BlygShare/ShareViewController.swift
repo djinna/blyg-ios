@@ -96,7 +96,7 @@ final class ShareModel {
     func post() {
         guard let target, let connection = connections.first(where: { $0.origin == target }),
               let token = tokens.token(for: target) else {
-            error = "This phone isn't connected to that blyg any more. Open Blyg and connect it again."
+            error = "This phone isn't connected to that blyg any more. Open Blyglet and connect it again."
             return
         }
         let poster = Poster(client: StudioClient(api: connection.api, token: token, transport: URLSessionTransport()), origin: target)
@@ -132,7 +132,7 @@ struct ShareView: View {
                     ContentUnavailableView {
                         Label("No blyg connected", systemImage: "square.and.pencil")
                     } description: {
-                        Text("Open Blyg, go to Your blygs, choose your blyg and connect it with a token. Then share again.")
+                        Text("Open Blyglet, go to Your blygs, choose your blyg and connect it with a token. Then share again.")
                     }
                 } else {
                     form

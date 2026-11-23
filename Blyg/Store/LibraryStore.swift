@@ -11,6 +11,7 @@ nonisolated struct LibraryStore: Sendable {
 
     static func appSupport() -> LibraryStore {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        // Stays "Blyg" after the rename to Blyglet: changing it would orphan every saved library.
         return LibraryStore(directory: base.appending(path: "Blyg", directoryHint: .isDirectory))
     }
 

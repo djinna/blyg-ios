@@ -1,6 +1,8 @@
-# Blyg
+# Blyglet
 
-An iPhone app for [Blygger](https://blygger.org): read the blygs you follow, and post to your own, including from the Share sheet.
+A little iPhone app for [Blygger](https://blygger.org): post to your blyg from your phone, including from the Share sheet, and read the blygs you follow.
+
+Blyglet was called Blyg until 2026-11-22. The app's name is Blyglet, but the repo, bundle ID, Xcode targets, scheme and folders still say Blyg, on purpose: renaming them would break links and installs and gain nothing. See the naming decision in `BUILD.md`.
 
 Built during the Blygger hackathon (2026-11-20 to 11-27). Work in progress: reading, posting and the Share extension work; testing on TestFlight. See `BUILD.md` for status and decisions.
 

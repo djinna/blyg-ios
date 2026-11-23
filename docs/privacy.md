@@ -1,12 +1,12 @@
 ---
-title: Blyg privacy policy
+title: Blyglet privacy policy
 ---
 
-# Blyg privacy policy
+# Blyglet privacy policy
 
-*Last updated 2026-11-22.*
+*Last updated 2026-11-22, when the app was renamed from Blyg to Blyglet. The policy itself didn't change.*
 
-**Blyg collects nothing about you.** There are no accounts, analytics, advertising or tracking, and no server run by the developer. The developer receives no data from the app.
+**Blyglet collects nothing about you.** There are no accounts, analytics, advertising or tracking, and no server run by the developer. The developer receives no data from the app.
 
 ## What stays on your phone
 
@@ -24,7 +24,7 @@ The Share extension ("Post to blyg") reads only what you choose to share, and se
 
 ## Children
 
-Blyg isn't directed at children and collects no information from anyone.
+Blyglet isn't directed at children and collects no information from anyone.
 
 ## Changes and contact
 

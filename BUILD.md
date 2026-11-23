@@ -1,8 +1,12 @@
 # BUILD
 
-**Status (2026-11-22):** builds 5, 6, 7 and 8 are in the hackathon group (Jenna removed build 2). Build 8 was uploaded and added on 2026-11-22. It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone.
+**Status (2026-11-22):** builds 5, 6, 7 and 8 are in the hackathon group (Jenna removed build 2). Build 8 was uploaded and added on 2026-11-22. It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone. Build 9 renames the app Blyglet; it's made but not uploaded.
 
 ## Versions
+
+### v0.1, build 9: renamed Blyglet (2026-11-22)
+- **The app is now called Blyglet** on the home screen, in the share sheet, in its masthead and on its public pages. Why, and what kept the old name, is in Decisions.
+- Saved blygs and connected blygs carry over: the bundle ID, Keychain group and library folder didn't change.
 
 ### v0.1, build 8: quote cards, quotes, line breaks, share sheet (2026-11-22)
 - **Quote cards:** when a post links to a blyg post, the post page shows that post's blyg, author, date and opening words under it, at most three. A link to a post on a blyg you follow now opens in the app. The privacy page and README say what's fetched.
@@ -68,7 +72,11 @@
 
 ## Decisions
 
-- **Name Blyg, bundle ID `net.jdbb.blyg`, repo `djinna/blyg-ios`, MIT.** "Blygger" is the protocol's name, so the app says "for Blygger" instead. Personal team `K24RHPX75P`. *Beat:* using "Blygger" as the app name.
+- **Name Blyglet (Blyg until 2026-11-22); bundle ID `net.jdbb.blyg`, repo `djinna/blyg-ios`, MIT.** Personal team `K24RHPX75P`.
+  - **Why the rename:** Jenna asked in the hackathon group whether naming the app Blyg was gauche. The protocol's steward at the Protocol Institute said it wasn't, but that there may be many competing clients, as with web and desktop clients, so it's courteous not to own the generic term; even the reference client is called Studio, not "Blygger". PI won't host client repos either: it stewards the spec, Studio and the commons sites, and leaves clients to individuals and companies.
+  - **Why Blyglet:** "a little blyg", as in piglet, for a small app whose first job is posting from the phone. Said "BLIG-let". "Blygger" is the protocol's name, so the app says "for Blygger".
+  - **Only the names people see changed:** the home-screen and share-sheet names, the masthead, the app's own text, the README and the public pages. The bundle ID can't change for an existing App Store Connect app. Targets, scheme and folders stay `Blyg`, as does the library folder on the phone (renaming it would orphan every saved library). The repo stays `blyg-ios`: builds 5 to 8 link to its GitHub Pages, and the hackathon has its URL.
+  - *Beat:* keeping Blyg; "Blygger"; Burrow (already a Blygger desktop client); Blygsam (Swedish "modest", but hard to say); Blygroll and Blygnet (they sound like readers, and the app is posting-first); Bower, Blygnib and Blygpen (fine, but Blyglet says "little").
 - **Commit straight to `main`.** The hackathon leaderboard counts only default-branch commits and skips merge commits. *Beat:* feature branches with PRs.
 - **External TestFlight with a public link, and `testFlightInternalTestingOnly = false` from the start.** This departs from ios.md's internal-only default. The reason: the app holds no private data. It shows public blygs, and each user pastes their own token into their own Keychain; none is bundled. *Beat:* internal testing, where every tester must first become an App Store Connect user on the team.
 - **Testing only on a sandbox blyg** on its own exe.dev VM, never blyg.jdbb.net. *Beat:* testing against the live blyg.
