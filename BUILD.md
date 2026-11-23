@@ -1,6 +1,6 @@
 # BUILD
 
-**Status (2026-11-22):** builds 5, 6, 7 and 8 are in the hackathon group (Jenna removed build 2). Build 8 was uploaded and added on 2026-11-22. It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone. Build 9 (2026-11-23) renames the app Blyglet and adds the C6 curl icon, color themes, an icon picker, About and keeping in step with your Studio's follows; Jenna checked it on her phone, and it was uploaded at 12:10 ET from `cb7caba`. The site moved to https://blyglet.com the same day. Ideas not yet planned are in `IDEAS.md`.
+**Status (2026-11-22):** builds 5, 6, 7 and 8 are in the hackathon group (Jenna removed build 2). Build 8 was uploaded and added on 2026-11-22. It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone. Build 9 (2026-11-23) renames the app Blyglet and adds the C6 curl icon, color themes, an icon picker, About and keeping in step with your Studio's follows; Jenna checked it on her phone, and it was uploaded at 12:10 ET from `cb7caba` and added to the hackathon group. On `main` since then, for build 10: US spelling in the app's strings. The site moved to https://blyglet.com the same day. Ideas not yet planned are in `IDEAS.md`.
 
 ## Versions
 
