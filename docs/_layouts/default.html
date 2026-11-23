@@ -4,7 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% if page.title %}{{ page.title }}{% else %}Blyglet{% endif %}</title>
-<meta name="description" content="Blyglet: a little iPhone app for posting to your blyg, from anywhere on your phone.">
+<meta name="description" content="A little iPhone app for posting to your blyg: quick posts, replies, and sharing from any app.">
+<meta property="og:site_name" content="Blyglet">
+<meta property="og:title" content="{% if page.title %}{{ page.title }}{% else %}Blyglet{% endif %}">
+<meta property="og:description" content="A little iPhone app for posting to your blyg: quick posts, replies, and sharing from any app.">
+<meta property="og:url" content="https://blyglet.com{{ page.url | replace: 'index.html', '' }}">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://blyglet.com/og-icon.png">
+<meta property="og:image:width" content="1024">
+<meta property="og:image:height" content="1024">
+<meta property="og:image:alt" content="The Blyglet icon: a curl, like a piglet's tail, on Pencil blue">
+<meta name="twitter:card" content="summary">
 <link rel="icon" href="{{ '/icon.png' | relative_url }}">
 <link rel="apple-touch-icon" href="{{ '/icon.png' | relative_url }}">
 <script src="{{ '/assets/switcher.js' | relative_url }}"></script>
