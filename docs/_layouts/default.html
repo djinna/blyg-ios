@@ -21,20 +21,20 @@
 <link rel="stylesheet" href="{{ '/assets/fonts.css' | relative_url }}">
 <style>
 /* Blyglet's look: a serif for reading, a small sans for the apparatus, the theme's pencil for marks.
-   Colours are the app's own themes (Blyg/Theme/Theme.swift); the switcher (assets/switcher.js) sets
+   Colors are the app's own themes (Blyg/Theme/Theme.swift); the switcher (assets/switcher.js) sets
    data-palette, data-font, and .light or .dark on <html>. */
 :root { color-scheme: light; --prose: "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, serif; --prose-size: 18px; }
-:root[data-palette="blue"], :root:not([data-palette]) { --page: #fafbfb; --ink: #1b2426; --soft: #5c686b; --rule: #dde3e5; --sunk: #eef1f3; --pencil: #23608c; --on-pencil: #ffffff; }
-:root[data-palette="pink"] { --page: #fdf7f8; --ink: #2a1e21; --soft: #6b5a5f; --rule: #efdce0; --sunk: #f8eaed; --pencil: #a3324f; --on-pencil: #ffffff; }
-:root[data-palette="moss"] { --page: #f7faf5; --ink: #1d261c; --soft: #586555; --rule: #dce5d8; --sunk: #edf3ea; --pencil: #3a6b3f; --on-pencil: #ffffff; }
-:root[data-palette="butter"] { --page: #fffbea; --ink: #2a2618; --soft: #655e45; --rule: #ede4c2; --sunk: #f7efcf; --pencil: #7d5a00; --on-pencil: #ffffff; }
+:root[data-palette="blue"], :root:not([data-palette]) { --page: #fafbfb; --ink: #1b2426; --soft: #5c686b; --rule: #dde3e5; --sunk: #eef1f3; --pencil: #23608c; --icon: url({{ '/icons/pencil-blue.png' | relative_url }}); --on-pencil: #ffffff; }
+:root[data-palette="pink"] { --page: #fdf7f8; --ink: #2a1e21; --soft: #6b5a5f; --rule: #efdce0; --sunk: #f8eaed; --pencil: #a3324f; --icon: url({{ '/icons/piglet-pink.png' | relative_url }}); --on-pencil: #ffffff; }
+:root[data-palette="moss"] { --page: #f7faf5; --ink: #1d261c; --soft: #586555; --rule: #dce5d8; --sunk: #edf3ea; --pencil: #3a6b3f; --icon: url({{ '/icons/moss.png' | relative_url }}); --on-pencil: #ffffff; }
+:root[data-palette="butter"] { --page: #fffbea; --ink: #2a2618; --soft: #655e45; --rule: #ede4c2; --sunk: #f7efcf; --pencil: #7d5a00; --icon: url({{ '/icons/butter.png' | relative_url }}); --on-pencil: #ffffff; }
 @media (prefers-color-scheme: dark) {
-  :root:not(.light)[data-palette="blue"], :root:not(.light):not([data-palette]) { --page: #14191a; --ink: #e3e7e7; --soft: #95a2a5; --rule: #2b3436; --sunk: #1d2426; --pencil: #8cc0e4; --on-pencil: #14191a; color-scheme: dark; }
+  :root:not(.light)[data-palette="blue"], :root:not(.light):not([data-palette]) { --page: #14191a; --ink: #e3e7e7; --soft: #95a2a5; --rule: #2b3436; --sunk: #1d2426; --pencil: #8cc0e4; --icon: url({{ '/icons/pencil-blue-dark.png' | relative_url }}); --on-pencil: #14191a; color-scheme: dark; }
   :root:not(.light)[data-palette="pink"] { --page: #1a1416; --ink: #f1e6e8; --soft: #ab989d; --rule: #3a2c30; --sunk: #251c1f; --pencil: #f4a7b6; --on-pencil: #1a1416; color-scheme: dark; }
   :root:not(.light)[data-palette="moss"] { --page: #141a14; --ink: #e4ebe2; --soft: #98a595; --rule: #2b352a; --sunk: #1d251c; --pencil: #a8d3a0; --on-pencil: #141a14; color-scheme: dark; }
   :root:not(.light)[data-palette="butter"] { --page: #1a1810; --ink: #f2ecd6; --soft: #a9a285; --rule: #37321f; --sunk: #24211a; --pencil: #f3e3a6; --on-pencil: #1a1810; color-scheme: dark; }
 }
-:root.dark[data-palette="blue"] { --page: #14191a; --ink: #e3e7e7; --soft: #95a2a5; --rule: #2b3436; --sunk: #1d2426; --pencil: #8cc0e4; --on-pencil: #14191a; color-scheme: dark; }
+:root.dark[data-palette="blue"] { --page: #14191a; --ink: #e3e7e7; --soft: #95a2a5; --rule: #2b3436; --sunk: #1d2426; --pencil: #8cc0e4; --icon: url({{ '/icons/pencil-blue-dark.png' | relative_url }}); --on-pencil: #14191a; color-scheme: dark; }
 :root.dark[data-palette="pink"] { --page: #1a1416; --ink: #f1e6e8; --soft: #ab989d; --rule: #3a2c30; --sunk: #251c1f; --pencil: #f4a7b6; --on-pencil: #1a1416; color-scheme: dark; }
 :root.dark[data-palette="moss"] { --page: #141a14; --ink: #e4ebe2; --soft: #98a595; --rule: #2b352a; --sunk: #1d251c; --pencil: #a8d3a0; --on-pencil: #141a14; color-scheme: dark; }
 :root.dark[data-palette="butter"] { --page: #1a1810; --ink: #f2ecd6; --soft: #a9a285; --rule: #37321f; --sunk: #24211a; --pencil: #f3e3a6; --on-pencil: #1a1810; color-scheme: dark; }
@@ -57,13 +57,15 @@ nav { max-width: 40rem; margin: 0 auto; padding: 1rem; display: flex; flex-wrap:
 nav a { color: var(--soft); text-decoration: none; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
 nav a:hover { color: var(--pencil); }
 nav .home { margin-right: auto; display: flex; align-items: baseline; gap: 0.5rem; color: var(--ink); font: 600 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-nav .home img { width: 28px; height: 28px; border-radius: 22.5%; align-self: center; } /* the wordmark's text, not the icon, sets the baseline */
+nav .home .app-icon { width: 28px; height: 28px; align-self: center; } /* the wordmark's text, not the icon, sets the baseline */
+/* The app icon follows the color theme (--icon), set before first paint so it never flashes. */
+.app-icon { display: inline-block; background: var(--icon) center / cover no-repeat; border-radius: 22.5%; }
 h1, h2 { font-weight: 400; line-height: 1.15; }
 h1 { font-size: 2.6rem; margin: 1.5rem 0 0.5rem; }
 h2 { font-size: 1.5rem; margin: 2.5rem 0 0.5rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); }
 code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--sunk); padding: 0.1em 0.3em; border-radius: 3px; }
 .hero { text-align: left; padding: 2.5rem 0 1rem; }
-.hero img { width: 120px; height: 120px; border-radius: 22.5%; box-shadow: 0 6px 24px rgb(0 0 0 / 0.15); }
+.hero .app-icon { display: block; width: 120px; height: 120px; box-shadow: 0 6px 24px rgb(0 0 0 / 0.15); }
 .hero h1 { margin-top: 1rem; }
 .hero .tagline { font-size: 1.25rem; color: var(--soft); margin: 0 0 1.5rem; }
 .button {
@@ -111,11 +113,11 @@ footer p { margin: 0.3rem 0; }
 .theme-opt[data-font="newsreader"] .theme-opt-name, .theme-opt[data-font="newsreader"] .theme-sample { font-family: "Newsreader", Georgia, serif; }
 .palette-note { margin: -2px 0 7px; font-size: 11px; color: var(--soft); }
 .theme-opt[data-palette] .theme-opt-name { display: inline-flex; align-items: center; gap: 9px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-.palette-swatch { width: 13px; height: 13px; border: 1px solid var(--soft); }
-.theme-opt[data-palette="blue"] .palette-swatch { background: #23608c; }
-.theme-opt[data-palette="pink"] .palette-swatch { background: #f4c7cf; }
-.theme-opt[data-palette="moss"] .palette-swatch { background: #cde3c6; }
-.theme-opt[data-palette="butter"] .palette-swatch { background: #f3e3a6; }
+.palette-swatch { width: 18px; height: 18px; border-radius: 22.5%; background: center / cover no-repeat; }
+.theme-opt[data-palette="blue"] .palette-swatch { background-image: url({{ '/icons/pencil-blue.png' | relative_url }}); }
+.theme-opt[data-palette="pink"] .palette-swatch { background-image: url({{ '/icons/piglet-pink.png' | relative_url }}); }
+.theme-opt[data-palette="moss"] .palette-swatch { background-image: url({{ '/icons/moss.png' | relative_url }}); }
+.theme-opt[data-palette="butter"] .palette-swatch { background-image: url({{ '/icons/butter.png' | relative_url }}); }
 .theme-sep { width: 1px; height: 14px; background: var(--rule); align-self: center; }
 .theme-bar .dark-btn { font-size: 14px; }
 @media (max-width: 640px) { .theme-bar .font-options { left: 0; right: auto; width: min(300px, calc(100vw - 2rem)); } }
@@ -123,7 +125,7 @@ footer p { margin: 0.3rem 0; }
 </head>
 <body>
 <nav>
-  <a class="home" href="{{ '/' | relative_url }}"><img src="{{ '/icon.png' | relative_url }}" alt="">Blyglet</a>
+  <a class="home" href="{{ '/' | relative_url }}"><span class="app-icon" aria-hidden="true"></span>Blyglet</a>
   <a href="{{ '/#support' | relative_url }}">Support</a>
   <a href="{{ '/privacy.html' | relative_url }}">Privacy</a>
   <a href="https://github.com/djinna/blyg-ios">Source</a>
@@ -133,7 +135,7 @@ footer p { margin: 0.3rem 0; }
 {{ content }}
 </main>
 <footer>
-  <p>Blyglet is an independent app for <a href="https://blygger.org">Blygger</a>, the open protocol for blygs. Open source, MIT licence.</p>
+  <p>Blyglet is an independent app for <a href="https://blygger.org">Blygger</a>, the open protocol for blygs. Open source, MIT license.</p>
 </footer>
 </body>
 </html>

@@ -3,7 +3,7 @@ title: Blyglet
 ---
 
 <div class="hero">
-  <img src="icon.png" alt="The Blyglet icon: a curl, like a piglet's tail, on Pencil blue">
+  <span class="app-icon" role="img" aria-label="The Blyglet icon: a curl, like a piglet's tail"></span>
   <h1>Blyglet</h1>
   <p class="tagline">A little iPhone app for posting to your blyg.</p>
   <a class="button" href="https://testflight.apple.com/join/HER7EwkZ">Join the beta on TestFlight</a>
@@ -16,7 +16,7 @@ Blyglet is for [Blygger](https://blygger.org) blygs. It does a few things well, 
 - **Share** to your blyg from any app, with "Post to blyg" in the Share sheet.
 - **Reply** to any blyg post, from whichever of your blygs you choose.
 - **Read** the blygs you follow, with the posts they quote and link to. It can keep in step with the blygs your Studio follows.
-- **Make it yours** with colour themes and a choice of twelve icons.
+- **Make it yours** with color themes and a choice of twelve icons.
 
 Blyglet does quick posts and replies. For editing, threads with quotes, pins and the rest, it opens your blyg's Studio.
 
