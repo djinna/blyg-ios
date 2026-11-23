@@ -141,7 +141,7 @@ struct ComposerView: View {
                         }
                     } else {
                         let canPost = !(draft.isEmpty || linkIsInvalid || target == nil)
-                        // Text on blue only when enabled; disabled, the system's own grey reads properly.
+                        // Text on blue only when enabled; disabled, the system's own gray reads properly.
                         Button(action: post) { Text("Post").foregroundStyle(canPost ? AnyShapeStyle(theme.onPencil) : AnyShapeStyle(.secondary)) }
                             .buttonStyle(.borderedProminent)
                             .buttonBorderShape(.capsule)

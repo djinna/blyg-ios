@@ -41,7 +41,7 @@ struct RootView: View {
         }
         .task { await launch() }
         .onChange(of: scenePhase) { _, phase in
-            // Only on coming back from the background (launch() refreshes everything; Control Centre doesn't count).
+            // Only on coming back from the background (launch() refreshes everything; Control Center doesn't count).
             if phase == .background { wasInBackground = true }
             if phase == .active, wasInBackground {
                 wasInBackground = false

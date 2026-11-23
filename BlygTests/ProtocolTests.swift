@@ -177,7 +177,7 @@ struct ThemeTests {
         #expect(css.contains("font-family: -apple-system, sans-serif; line-height: 1.45"))
     }
 
-    /// WCAG contrast ratio between two sRGB colours.
+    /// WCAG contrast ratio between two sRGB colors.
     static func contrast(_ a: UInt32, _ b: UInt32) -> Double {
         func luminance(_ v: UInt32) -> Double {
             let c = [16, 8, 0].map { Double((v >> UInt32($0)) & 0xFF) / 255 }
@@ -208,7 +208,7 @@ struct ThemeTests {
         }
     }
 
-    @Test func aThemeColoursThePostPage() {
+    @Test func aThemeColorsThePostPage() {
         let css = Theme(appearance: .studio, colors: .moss).css
         #expect(css.contains("--pencil: #3a6b3f"))
         #expect(css.contains("--page: #141a14")) // dark
@@ -264,7 +264,7 @@ struct LinkedPostTests {
         #expect(found.map { "\($0.origin.absoluteString)\($0.id)" } == ["https://sample.example/x1", "https://other.example/x2"])
     }
 
-    @Test func itemPagesAreRecognisedAtAnyMount() throws {
+    @Test func itemPagesAreRecognizedAtAnyMount() throws {
         let (mount, id) = try #require(LinkedPosts.itemPage(URL(string: "https://host.example/a/b/t/abc123/?x=1#y")!))
         #expect(mount.absoluteString == "https://host.example/a/b/")
         #expect(id == "abc123")

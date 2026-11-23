@@ -30,4 +30,4 @@ To try posting without touching a real blyg, run your own [Blygger Studio](https
 
 How it's built, and why it looks the way it does: [`BUILD.md`](BUILD.md). Notes for coding agents: [`CLAUDE.md`](CLAUDE.md).
 
-MIT licence.
+MIT license.

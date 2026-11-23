@@ -1,10 +1,10 @@
 import SwiftUI
 import UIKit
 
-/// The app's two looks. Same layout; only type and colour change.
+/// The app's two looks. Same layout; only type and color change.
 /// Studio follows Blygger Studio's own stylesheet (studio 0.65.0 `style.css`): serif prose, a small sans
 /// "apparatus" for metadata, and an editor's blue pencil for every editorial mark. System is San Francisco
-/// and iOS's own colours. Chosen in Settings (Your blygs → Appearance); stored as `appearance` in UserDefaults.
+/// and iOS's own colors. Chosen in Settings (Your blygs → Appearance); stored as `appearance` in UserDefaults.
 nonisolated enum Appearance: String, CaseIterable, Identifiable, Sendable {
     case studio, system
 
@@ -13,20 +13,20 @@ nonisolated enum Appearance: String, CaseIterable, Identifiable, Sendable {
     var summary: String {
         self == .studio
             ? "Blygger Studio's look: a serif for posts, blue for links and marks."
-            : "iPhone's own look: San Francisco and system colours."
+            : "iPhone's own look: San Francisco and system colors."
     }
 
     static let storageKey = "appearance"
 }
 
-/// One colour scheme for the Studio look: the page, its text, and the pencil for links and marks.
+/// One color scheme for the Studio look: the page, its text, and the pencil for links and marks.
 nonisolated struct Palette: Sendable, Equatable {
     let page, ink, soft, rule, sunk, pencil, onPencil: UInt32
 }
 
-/// Colour themes, from the icon palettes (2026-11-23). Each has a light and a dark palette; Paper and Ink
+/// Color themes, from the icon palettes (2026-11-23). Each has a light and a dark palette; Paper and Ink
 /// ignore the phone's setting and stay light or dark. Stored as `colorTheme` in UserDefaults (CA92.1).
-/// Every text colour passes 4.5:1 on its page and on `sunk` (BlygTests' "Themes" suite checks it).
+/// Every text color passes 4.5:1 on its page and on `sunk` (BlygTests' "Themes" suite checks it).
 nonisolated enum ColorTheme: String, CaseIterable, Identifiable, Sendable {
     case pencilBlue, pigletPink, moss, butter, paper, ink
 
@@ -51,7 +51,7 @@ nonisolated enum ColorTheme: String, CaseIterable, Identifiable, Sendable {
         case .ink: "Always dark, whatever the phone's setting."
         }
     }
-    /// Paper and Ink force the colour scheme; the rest follow the phone.
+    /// Paper and Ink force the color scheme; the rest follow the phone.
     var scheme: ColorScheme? {
         switch self {
         case .paper: .light
@@ -106,7 +106,7 @@ nonisolated struct Theme: Sendable {
         }
     }
 
-    /// Metadata about a post rather than the post: one face, one size, one colour in both looks.
+    /// Metadata about a post rather than the post: one face, one size, one color in both looks.
     var apparatus: Font { .footnote }
     /// Small capitals-style labels (THREAD, LINK, PHOTO).
     var label: Font { .caption.weight(.medium) }
@@ -114,9 +114,9 @@ nonisolated struct Theme: Sendable {
     /// Studio's prose is 1.65 line height; San Francisco reads well a little tighter.
     var proseLineSpacing: CGFloat { appearance == .studio ? 6 : 3 }
 
-    // MARK: Colour
+    // MARK: Color
 
-    // The Studio look takes every colour from the theme. The System look keeps iOS's own colours and takes
+    // The Studio look takes every color from the theme. The System look keeps iOS's own colors and takes
     // only the pencil from the theme (iOS's link blue for the default theme).
     var page: Color { pick(\.page, system: Color(.systemBackground)) }
     var ink: Color { pick(\.ink, system: Color(.label)) }
@@ -127,8 +127,8 @@ nonisolated struct Theme: Sendable {
     var pencil: Color {
         appearance == .system && colors == .pencilBlue ? Color(.link) : dynamic(\.pencil)
     }
-    /// Text on a pencil-coloured button. In dark palettes the pencil is light, so white text on it fails
-    /// contrast: each palette names its own (the dark page colour there, about 9:1 on #8CC0E4).
+    /// Text on a pencil-colored button. In dark palettes the pencil is light, so white text on it fails
+    /// contrast: each palette names its own (the dark page color there, about 9:1 on #8CC0E4).
     var onPencil: Color { dynamic(\.onPencil) }
 
     private func pick(_ key: KeyPath<Palette, UInt32>, system: Color) -> Color {

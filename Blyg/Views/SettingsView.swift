@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// Settings: the look (Studio or System), the colour theme, and the home-screen icon.
-/// Look and colour are stored in UserDefaults under `appearance` and `colorTheme` (privacy manifest: CA92.1).
+/// Settings: the look (Studio or System), the color theme, and the home-screen icon.
+/// Look and color are stored in UserDefaults under `appearance` and `colorTheme` (privacy manifest: CA92.1).
 ///
 /// One source of truth: `ThemedRoot` reads the settings and hands the theme down. This screen shows the
 /// theme it's given and only writes the settings. With its own `@AppStorage` reading the same key too, it
@@ -64,11 +64,11 @@ struct SettingsView: View {
                     .accessibilityIdentifier("colorTheme-\(choice.rawValue)")
                 }
             } header: {
-                Text("Colour")
+                Text("Color")
             } footer: {
                 Text(appearance == .studio
-                     ? "Colours for pages, text and links."
-                     : "The System look keeps iPhone's colours and takes only the link colour from here.")
+                     ? "Colors for pages, text and links."
+                     : "The System look keeps iPhone's colors and takes only the link color from here.")
             }
 
             if UIApplication.shared.supportsAlternateIcons {

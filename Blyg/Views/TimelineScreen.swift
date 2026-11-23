@@ -220,7 +220,7 @@ struct TimelineRow: View {
     }
 }
 
-/// Centres its content, and scrolls it when the largest text sizes make it taller than the screen.
+/// Centers its content, and scrolls it when the largest text sizes make it taller than the screen.
 struct ScrollingIfNeeded<Content: View>: View {
     @ViewBuilder var content: Content
 

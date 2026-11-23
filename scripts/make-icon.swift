@@ -109,8 +109,8 @@ let palettes: [(name: String, ground: UInt32, ink: UInt32)] = [
     ("Moss", 0xCDE3C6, 0x111819),
     ("Butter", 0xF3E3A6, 0x111819),
 ]
-/// Dark home screens: a deeper Pencil blue with the same curl. Tinted home screens: grey artwork on black,
-/// which iOS colours itself.
+/// Dark home screens: a deeper Pencil blue with the same curl. Tinted home screens: gray artwork on black,
+/// which iOS colors itself.
 let dark = (ground: UInt32(0x173F5C), ink: UInt32(0xFBFAF6))
 let tinted = (ground: UInt32(0x000000), ink: UInt32(0xE6E6E6))
 

@@ -1,4 +1,4 @@
-// The site's type, colour and appearance switcher. Adapted from Jenna's switcher on her own site (2026-11-23).
+// The site's type, color and appearance switcher. Adapted from Jenna's switcher on her own site (2026-11-23).
 // The choices persist in this browser's localStorage only. Load it in <head> so the page never flashes the
 // default look; the bar mounts itself into <div id="theme-bar"> once the page is parsed.
 (function () {
@@ -20,7 +20,7 @@
     { label: 'Mono/Sans', keys: ['jetbrains', 'martian', 'plex', 'geist'] },
     { label: 'Serif', keys: ['literata', 'ibm-serif', 'source-serif', 'newsreader'] },
   ];
-  // The app's colour themes that follow light and dark (Paper and Ink are the appearance button's job here).
+  // The app's color themes that follow light and dark (Paper and Ink are the appearance button's job here).
   var PALETTES = { blue: 'Pencil blue', pink: 'Piglet pink', moss: 'Moss', butter: 'Butter' };
   var PALETTE_KEYS = Object.keys(PALETTES);
   var MODES = ['system', 'light', 'dark'];
@@ -79,13 +79,13 @@
   function mount(bar) {
     bar.classList.add('theme-bar');
     bar.innerHTML =
-      '<button type="button" class="font-name" aria-haspopup="true" aria-expanded="false" title="Type and colour"></button>' +
-      '<div class="font-options" aria-label="Type and colour">' +
+      '<button type="button" class="font-name" aria-haspopup="true" aria-expanded="false" title="Type and color"></button>' +
+      '<div class="font-options" aria-label="Type and color">' +
         GROUPS.map(function (g) {
           return '<div class="theme-opt-group"><div class="theme-opt-label">' + g.label + '</div>' +
             g.keys.map(function (k) { return option('font', k, FONTS[k], true, false); }).join('') + '</div>';
         }).join('') +
-        '<div class="theme-opt-group"><div class="theme-opt-label">Colour</div>' +
+        '<div class="theme-opt-group"><div class="theme-opt-label">Color</div>' +
           '<div class="palette-note">The app’s themes · light and dark</div>' +
           PALETTE_KEYS.map(function (k) { return option('palette', k, PALETTES[k], false, true); }).join('') +
         '</div>' +
