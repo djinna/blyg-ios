@@ -4,7 +4,7 @@ title: Blyglet privacy policy
 
 # Blyglet privacy policy
 
-*Last updated 2026-11-22, when the app was renamed from Blyg to Blyglet. The policy itself didn't change.*
+*Last updated 2026-11-23: it now says when the app reads your own Studio's list of follows (a feature since 2026-11-22's build 6, and kept in step from build 9). The app was renamed from Blyg to Blyglet on 2026-11-22.*
 
 **Blyglet collects nothing about you.** There are no accounts, analytics, advertising or tracking, and no server run by the developer. The developer receives no data from the app.
 
@@ -19,6 +19,7 @@ title: Blyglet privacy policy
 - **To blygs that a post links to:** when you open a post that links to a post on another blyg, the app fetches two public files from that blyg (its `blyg.json` and the linked post), to show the linked post's opening words under it. It does this for up to three links per post, and only for links that point to blyg posts. That blyg's server can see your IP address, as when you tap a link.
 - **To other websites that posts point to:** posts can include images or media hosted elsewhere, and the app loads them when you read the post, like a web browser would. Links you tap open in Safari, except links to posts on blygs you follow, which open in the app.
 - **To your own blyg when you post:** your text, link and photo, sent to your blyg's Studio with your token. Photos are re-encoded before upload, which removes their location and camera details.
+- **To your own blyg, if you turn on "Follow what this Studio follows":** a request, with your token, for the list of blygs your Studio follows, when you turn it on and when the app refreshes your blyg. Nothing is written to your Studio.
 
 The Share extension ("Post to blyg") reads only what you choose to share, and sends it only to the blyg you post to.
 
