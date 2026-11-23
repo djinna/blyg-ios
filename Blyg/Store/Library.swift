@@ -19,6 +19,9 @@ nonisolated struct SavedBlyg: Codable, Sendable, Equatable, Identifiable {
     var items: [String: SavedItem] = [:]
     /// The owner API this phone can post to, set when the owner connects a token (kept in the Keychain, not here).
     var postingAPI: URL?
+    /// Keeping in step with this blyg's Studio: the blygs its subscriptions listed last time. Only blygs new to
+    /// that list are followed on later refreshes, so one unfollowed in the app never comes back. Nil when off.
+    var studioFollows: [URL]?
 
     var id: URL { origin }
 

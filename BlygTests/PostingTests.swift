@@ -10,6 +10,8 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
 
     init(_ answers: [String: (Int, String)]) { self.answers = answers }
 
+    func set(_ key: String, _ answer: (Int, String)) { lock.withLock { answers[key] = answer } }
+
     var keys: [String] { lock.withLock { sent.map { "\($0.httpMethod ?? "") \($0.url!.absoluteString)" } } }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
@@ -369,6 +371,37 @@ struct ReplyTests {
         #expect(result.skippedFeeds == 1)
         #expect(result.failed == ["gone.example"])
         #expect(model.library.blygs.map(\.origin.absoluteString) == ["https://sample.example/", "https://second.example/"])
+        #expect(model.blyg(Fixtures.origin)?.studioFollows?.count == 3) // keeping in step from now on
+    }
+
+    @Test func keepingInStepFollowsOnlyBlygsNewToTheStudio() async throws {
+        let fetcher = FakeFetcher.sample()
+        for host in ["second", "third"] {
+            fetcher.set("https://\(host).example/blyg.json", .init(body: #"{"blyg":"0.4","title":"T"}"#))
+            fetcher.set("https://\(host).example/items/index.json", .init(body: #"{"items":[]}"#))
+        }
+        let list = { (hosts: [String]) in
+            #"{"items":["# + hosts.map { #"{"kind":"blyg","origin":"https://\#($0).example/","title":"T"}"# }.joined(separator: ",")
+                + #"],"page":{"limit":100,"nextCursor":null}}"#
+        }
+        let transport = FakeTransport([
+            "GET https://sample.example/api/capabilities": (200, SandboxResponses.capabilities.replacingOccurrences(of: "blyg-sandbox.exe.xyz", with: "sample.example")),
+            "GET https://sample.example/api/subscriptions": (200, list(["second"])),
+        ])
+        let model = LibraryModel(store: nil, fetcher: fetcher, tokens: MemoryTokenStore(), transport: transport)
+        try await model.add("sample.example")
+        try await model.connect(Fixtures.origin, token: "secret")
+        _ = try await model.importSubscriptions(from: Fixtures.origin)
+        model.remove(URL(string: "https://second.example/")!) // unfollowed here, still followed in Studio
+
+        transport.set("GET https://sample.example/api/subscriptions", (200, list(["second", "third"])))
+        await model.refresh(Fixtures.origin)
+        #expect(model.library.blygs.map(\.origin.absoluteString) == ["https://sample.example/", "https://third.example/"])
+
+        model.stopKeepingInStep(Fixtures.origin)
+        transport.set("GET https://sample.example/api/subscriptions", (200, list(["second", "third", "fourth"])))
+        await model.refresh(Fixtures.origin)
+        #expect(model.library.blygs.count == 2) // off: nothing new is followed
     }
 
     @Test func comingBackRefreshesYourOwnBlygSoonerThanOthers() async throws {

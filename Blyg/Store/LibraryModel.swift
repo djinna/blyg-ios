@@ -94,9 +94,14 @@ final class LibraryModel {
             return
         }
         guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return } // removed meanwhile
-        library.blygs[index] = updated
+        // The sync worked on a copy taken before the network: keep settings changed while it ran.
+        var merged = updated
+        merged.postingAPI = library.blygs[index].postingAPI
+        merged.studioFollows = library.blygs[index].studioFollows
+        library.blygs[index] = merged
         timeline = library.timeline()
         save()
+        if merged.studioFollows != nil { await followStudiosNewSubscriptions(origin) }
     }
 
     // MARK: Quote cards
@@ -206,6 +211,7 @@ final class LibraryModel {
         tokens.remove(for: origin)
         guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
         library.blygs[index].postingAPI = nil
+        library.blygs[index].studioFollows = nil
         save()
     }
 
@@ -217,17 +223,26 @@ final class LibraryModel {
         var skippedFeeds = 0
     }
 
-    /// Follows, in this app, the blygs the connected Studio subscribes to. Plain RSS subscriptions are skipped:
+    /// Starts keeping in step with the connected Studio: follows, in this app, the blygs it subscribes to now,
+    /// and remembers the list so later refreshes add only blygs new to it. Plain RSS subscriptions are skipped:
     /// this app reads blygs. Added one at a time, so a big list doesn't flood anyone's server.
     func importSubscriptions(from origin: URL, progress: (Int, Int) -> Void = { _, _ in }) async throws -> ImportResult {
         guard let blyg = blyg(origin), let api = blyg.postingAPI, let token = tokens.token(for: origin) else {
             throw ConnectFailure.other("Connect this blyg first.")
         }
-        let subscriptions = try await StudioClient(api: api, token: token, transport: transport).listSubscriptions()
+        setStudioFollows(origin, []) // on at once, so the switch doesn't flick back while the list loads
+        let subscriptions: [StudioSubscription]
+        do {
+            subscriptions = try await StudioClient(api: api, token: token, transport: transport).listSubscriptions()
+        } catch {
+            setStudioFollows(origin, nil)
+            throw error
+        }
         var result = ImportResult()
         let blygs = subscriptions.filter { $0.kind == "blyg" }
         result.skippedFeeds = subscriptions.count - blygs.count
-        let candidates = blygs.compactMap { $0.origin.flatMap { URL(string: $0.trimmingCharacters(in: .whitespaces)) } }
+        let candidates = Self.blygOrigins(in: subscriptions)
+        setStudioFollows(origin, candidates)
         for (index, candidate) in candidates.enumerated() {
             progress(index, candidates.count)
             if library.blygs.contains(where: { $0.origin == candidate }) {
@@ -245,6 +260,35 @@ final class LibraryModel {
         }
         progress(candidates.count, candidates.count)
         return result
+    }
+
+    /// Stops keeping in step. Blygs already followed stay followed.
+    func stopKeepingInStep(_ origin: URL) { setStudioFollows(origin, nil) }
+
+    /// On refresh, while keeping in step: follow the blygs new to the Studio's list since last time. Never
+    /// unfollows, and never re-adds one the person unfollowed here. Fails quietly; the next refresh tries again.
+    func followStudiosNewSubscriptions(_ origin: URL) async {
+        guard let blyg = blyg(origin), let known = blyg.studioFollows, let api = blyg.postingAPI,
+              let token = tokens.token(for: origin),
+              let subscriptions = try? await StudioClient(api: api, token: token, transport: transport).listSubscriptions()
+        else { return }
+        let now = Self.blygOrigins(in: subscriptions)
+        guard self.blyg(origin)?.studioFollows != nil else { return } // switched off meanwhile
+        setStudioFollows(origin, now)
+        for new in now where !known.contains(new) && self.blyg(new) == nil {
+            _ = try? await add(new.absoluteString)
+        }
+    }
+
+    private static func blygOrigins(in subscriptions: [StudioSubscription]) -> [URL] {
+        subscriptions.filter { $0.kind == "blyg" }
+            .compactMap { $0.origin.flatMap { URL(string: $0.trimmingCharacters(in: .whitespaces)) } }
+    }
+
+    private func setStudioFollows(_ origin: URL, _ follows: [URL]?) {
+        guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
+        library.blygs[index].studioFollows = follows
+        save()
     }
 
     func poster(for origin: URL) -> Poster? {

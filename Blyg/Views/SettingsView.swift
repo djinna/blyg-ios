@@ -90,6 +90,14 @@ struct SettingsView: View {
                 }
                 .id("appIcon")
             }
+
+            Section("About") {
+                LabeledContent("Version", value: Self.version)
+                    .accessibilityIdentifier("aboutVersion")
+                Link("Help", destination: URL(string: "https://djinna.github.io/blyg-ios/")!)
+                Link("Privacy", destination: URL(string: "https://djinna.github.io/blyg-ios/privacy.html")!)
+                Link("Source code", destination: URL(string: "https://github.com/djinna/blyg-ios")!)
+            }
         }
         #if DEBUG
         .task {
@@ -102,6 +110,14 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// "0.1 (9)": the version and build number testers quote in feedback.
+    static var version: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let short = info["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info["CFBundleVersion"] as? String ?? "?"
+        return "\(short) (\(build))"
     }
 
     /// Always laid out, hidden when not chosen, so choosing a row doesn't re-wrap its text (Jenna, 2026-11-23).

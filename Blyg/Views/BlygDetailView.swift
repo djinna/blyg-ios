@@ -30,13 +30,19 @@ struct BlygDetailView: View {
                     if model.isConnected(origin) {
                         Label("This phone can post here.", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
+                        Toggle(isOn: keepInStep) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Follow what this Studio follows")
+                                Text("Now, and whenever it follows a new blyg. Unfollowing here never changes your Studio.")
+                                    .font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                        .disabled(importing != nil)
+                        .accessibilityIdentifier("keepInStepToggle")
                         if let importing {
                             ProgressView(value: Double(importing.done), total: Double(max(importing.total, 1))) {
                                 Text("Following \(importing.done) of \(importing.total)…").font(.footnote)
                             }
-                        } else {
-                            Button("Follow the blygs this Studio follows", action: importSubscriptions)
-                                .accessibilityIdentifier("importSubscriptionsButton")
                         }
                         if let importResult {
                             Text(importResult).font(.footnote).foregroundStyle(.secondary)
@@ -107,6 +113,15 @@ struct BlygDetailView: View {
             Text("Tokens last 30 days.").foregroundStyle(.secondary)
         }
         .font(.callout)
+    }
+
+    /// On: follow the Studio's blygs now and keep adding new ones on refresh. Off: stop adding; nothing is unfollowed.
+    private var keepInStep: Binding<Bool> {
+        Binding {
+            model.blyg(origin)?.studioFollows != nil
+        } set: { on in
+            if on { importSubscriptions() } else { model.stopKeepingInStep(origin); importResult = nil }
+        }
     }
 
     private func importSubscriptions() {
