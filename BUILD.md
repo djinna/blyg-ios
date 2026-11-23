@@ -1,12 +1,18 @@
 # BUILD
 
-**Status (2026-11-22):** builds 5, 6, 7 and 8 are in the hackathon group (Jenna removed build 2). Build 8 was uploaded and added on 2026-11-22. It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone. Build 9 renames the app Blyglet; it's made but not uploaded.
+**Status (2026-11-22):** builds 5, 6, 7 and 8 are in the hackathon group (Jenna removed build 2). Build 8 was uploaded and added on 2026-11-22. It adds quote cards, quoted posts shown as quotes, kept line breaks, the share sheet's default blyg, and refresh on return. On the sandbox, post `6g2xswnerpj7aymc7g41w31gs5` links to two other sandbox posts, for trying quote cards on a phone. Build 9 (2026-11-23) renames the app Blyglet and adds the C6 curl icon, colour themes, an icon picker, About and keeping in step with your Studio's follows; it's on Jenna's phone, not uploaded yet. Ideas not yet planned are in `IDEAS.md`.
 
 ## Versions
 
-### v0.1, build 9: renamed Blyglet (2026-11-22)
-- **The app is now called Blyglet** on the home screen, in the share sheet, in its masthead and on its public pages. Why, and what kept the old name, is in Decisions.
-- Saved blygs and connected blygs carry over: the bundle ID, Keychain group and library folder didn't change.
+### v0.1, build 9: Blyglet, its icon, themes and Settings (2026-11-22 to 11-23)
+- **The app is now called Blyglet** on the home screen, in the share sheet, in its masthead and on its public pages. Saved blygs and connected blygs carry over: the bundle ID, Keychain group and library folder didn't change.
+- **New icon, the C6 curl:** a piglet's tail as one rising stroke. Pencil blue on light home screens, a deeper Pencil blue on dark ones, grey for tinted ones.
+- **Settings** (formerly "Appearance" in Your blygs):
+  - **Colour:** Pencil blue (default), Piglet pink, Moss and Butter follow the phone's light or dark setting; Paper is always light and Ink always dark.
+  - **App icon:** the twelve C6 palettes.
+  - **About:** version and build, Help, Privacy, source.
+  - Choosing a row no longer re-wraps its text (Jenna's nit).
+- **"Follow what this Studio follows"** is now a switch on a connected blyg's page: it follows the Studio's blygs now and any new ones on refresh.
 
 ### v0.1, build 8: quote cards, quotes, line breaks, share sheet (2026-11-22)
 - **Quote cards:** when a post links to a blyg post, the post page shows that post's blyg, author, date and opening words under it, at most three. A link to a post on a blyg you follow now opens in the app. The privacy page and README say what's fetched.
@@ -72,6 +78,10 @@
 
 ## Decisions
 
+- **Icon: the C6 curl (2026-11-23).** Designed with Jenna on a claude.ai canvas, copied into `scripts/make-icon.swift` exactly. Dark home screens get a deeper Pencil blue (`#173F5C`) with the same curl. *Beat:* the "66" quote mark (it said "Studio", not "little"); one quote, a corner "66", a quote and plus, a lowercase b; the other piglet-tail sketches; Paper as the dark icon (a bright tile on a dark home screen; Jenna chose the deeper blue after comps).
+- **Colour themes are palettes for the Studio look (2026-11-23).** Each theme sets page, ink, secondary text, rules, panels and the pencil, in light and dark. The System look keeps iOS's colours and takes only the link colour. Paper and Ink force light or dark, which gives them a job: as palettes they were the default's own light and dark. A unit test holds every theme to 4.5:1 for text and links. Testing kept light at Jenna's request: the contrast test, plus timeline and post screenshots per theme; only Settings gets the full light, dark and largest-text set. *Beat:* all twelve icon palettes as themes (coral and pinks often fail contrast as link colours).
+- **Alternate icons are light-only (2026-11-23).** Only the default icon has dark and tinted versions; Settings says so. The alternates come from `ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS`, and a test checks each is in the built app. Whether an alternate set can carry its own dark version wasn't checked.
+- **Keeping in step with a Studio is add-only (2026-11-23).** The app remembers the Studio's list and, on refresh, follows only blygs new to it. So a blyg unfollowed in the app never comes back, and nothing is ever unfollowed or written to the Studio. *Beat:* rerunning the whole import on every refresh (it would re-add what you unfollowed); two-way sync (writes to your blyg; see `IDEAS.md`).
 - **Name Blyglet (Blyg until 2026-11-22); bundle ID `net.jdbb.blyg`, repo `djinna/blyg-ios`, MIT.** Personal team `K24RHPX75P`.
   - **Why the rename:** Jenna asked in the hackathon group whether naming the app Blyg was gauche. The protocol's steward at the Protocol Institute said it wasn't, but that there may be many competing clients, as with web and desktop clients, so it's courteous not to own the generic term; even the reference client is called Studio, not "Blygger". PI won't host client repos either: it stewards the spec, Studio and the commons sites, and leaves clients to individuals and companies.
   - **Why Blyglet:** "a little blyg", as in piglet, for a small app whose first job is posting from the phone. Said "BLIG-let". "Blygger" is the protocol's name, so the app says "for Blygger".
