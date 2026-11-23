@@ -18,8 +18,10 @@ nonisolated enum LaunchFlags {
     static let connectToken = "-connectToken"
     /// Open the seeded blyg's own page at launch.
     static let openBlyg = "-openBlyg"
-    /// Open Settings (Appearance) at launch.
+    /// Open Settings at launch.
     static let openSettings = "-openSettings"
+    /// With -openSettings: scroll to the app icon picker.
+    static let showIcons = "-showIcons"
     /// With -openPost: open the reply composer for that post.
     static let openReply = "-openReply"
     /// Open the composer at launch.

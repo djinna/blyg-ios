@@ -36,7 +36,7 @@ struct BlygsView: View {
             }
             Section {
                 NavigationLink(value: Route.settings) {
-                    Label("Appearance", systemImage: "textformat")
+                    Label("Settings", systemImage: "gearshape")
                 }
                 .accessibilityIdentifier("settingsRow")
             }

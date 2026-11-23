@@ -19,8 +19,74 @@ nonisolated enum Appearance: String, CaseIterable, Identifiable, Sendable {
     static let storageKey = "appearance"
 }
 
+/// One colour scheme for the Studio look: the page, its text, and the pencil for links and marks.
+nonisolated struct Palette: Sendable, Equatable {
+    let page, ink, soft, rule, sunk, pencil, onPencil: UInt32
+}
+
+/// Colour themes, from the icon palettes (2026-11-23). Each has a light and a dark palette; Paper and Ink
+/// ignore the phone's setting and stay light or dark. Stored as `colorTheme` in UserDefaults (CA92.1).
+/// Every text colour passes 4.5:1 on its page and on `sunk` (BlygTests' "Themes" suite checks it).
+nonisolated enum ColorTheme: String, CaseIterable, Identifiable, Sendable {
+    case pencilBlue, pigletPink, moss, butter, paper, ink
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .pencilBlue: "Pencil blue"
+        case .pigletPink: "Piglet pink"
+        case .moss: "Moss"
+        case .butter: "Butter"
+        case .paper: "Paper"
+        case .ink: "Ink"
+        }
+    }
+    var summary: String {
+        switch self {
+        case .pencilBlue: "Studio's blue. Follows the phone's light or dark setting."
+        case .pigletPink: "Warm pinks. Follows the phone's setting."
+        case .moss: "Soft greens. Follows the phone's setting."
+        case .butter: "Cream and gold, easy on the eyes. Follows the phone's setting."
+        case .paper: "Always light, whatever the phone's setting."
+        case .ink: "Always dark, whatever the phone's setting."
+        }
+    }
+    /// Paper and Ink force the colour scheme; the rest follow the phone.
+    var scheme: ColorScheme? {
+        switch self {
+        case .paper: .light
+        case .ink: .dark
+        default: nil
+        }
+    }
+
+    var light: Palette {
+        switch self {
+        case .pencilBlue: Palette(page: 0xFAFBFB, ink: 0x1B2426, soft: 0x5C686B, rule: 0xDDE3E5, sunk: 0xEEF1F3, pencil: 0x23608C, onPencil: 0xFFFFFF)
+        case .pigletPink: Palette(page: 0xFDF7F8, ink: 0x2A1E21, soft: 0x6B5A5F, rule: 0xEFDCE0, sunk: 0xF8EAED, pencil: 0xA3324F, onPencil: 0xFFFFFF)
+        case .moss: Palette(page: 0xF7FAF5, ink: 0x1D261C, soft: 0x586555, rule: 0xDCE5D8, sunk: 0xEDF3EA, pencil: 0x3A6B3F, onPencil: 0xFFFFFF)
+        case .butter: Palette(page: 0xFFFBEA, ink: 0x2A2618, soft: 0x655E45, rule: 0xEDE4C2, sunk: 0xF7EFCF, pencil: 0x7D5A00, onPencil: 0xFFFFFF)
+        case .paper: Palette(page: 0xFBFAF6, ink: 0x1B2426, soft: 0x5C686B, rule: 0xE4E1D8, sunk: 0xF2F0E8, pencil: 0x23608C, onPencil: 0xFFFFFF)
+        case .ink: dark
+        }
+    }
+    var dark: Palette {
+        switch self {
+        case .pencilBlue: Palette(page: 0x14191A, ink: 0xE3E7E7, soft: 0x95A2A5, rule: 0x2B3436, sunk: 0x1D2426, pencil: 0x8CC0E4, onPencil: 0x14191A)
+        case .pigletPink: Palette(page: 0x1A1416, ink: 0xF1E6E8, soft: 0xAB989D, rule: 0x3A2C30, sunk: 0x251C1F, pencil: 0xF4A7B6, onPencil: 0x1A1416)
+        case .moss: Palette(page: 0x141A14, ink: 0xE4EBE2, soft: 0x98A595, rule: 0x2B352A, sunk: 0x1D251C, pencil: 0xA8D3A0, onPencil: 0x141A14)
+        case .butter: Palette(page: 0x1A1810, ink: 0xF2ECD6, soft: 0xA9A285, rule: 0x37321F, sunk: 0x24211A, pencil: 0xF3E3A6, onPencil: 0x1A1810)
+        case .paper: light
+        case .ink: Palette(page: 0x111819, ink: 0xE3E7E7, soft: 0x95A2A5, rule: 0x2B3436, sunk: 0x1C2324, pencil: 0x9CCBE8, onPencil: 0x111819)
+        }
+    }
+
+    static let storageKey = "colorTheme"
+}
+
 nonisolated struct Theme: Sendable {
     let appearance: Appearance
+    var colors: ColorTheme = .pencilBlue
 
     // MARK: Type
 
@@ -50,26 +116,28 @@ nonisolated struct Theme: Sendable {
 
     // MARK: Colour
 
-    var page: Color { pick(studio: (0xFAFBFB, 0x14191A), system: Color(.systemBackground)) }
-    var ink: Color { pick(studio: (0x1B2426, 0xE3E7E7), system: Color(.label)) }
-    var soft: Color { pick(studio: (0x5C686B, 0x95A2A5), system: Color(.secondaryLabel)) }
-    var rule: Color { pick(studio: (0xDDE3E5, 0x2B3436), system: Color(.separator)) }
-    var sunk: Color { pick(studio: (0xEEF1F3, 0x1D2426), system: Color(.secondarySystemBackground)) }
-    /// Links and editorial marks. In dark mode Studio's pencil is the icon's light blue.
-    var pencil: Color { pick(studio: (0x23608C, 0x8CC0E4), system: Color(.link)) }
-    /// Text on a pencil-blue button. In dark mode the blue is light, so white text on it fails contrast:
-    /// use the dark page colour there instead (about 9:1 on #8CC0E4).
-    var onPencil: Color {
-        Color(UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(hex: 0x14191A) : .white
-        })
+    // The Studio look takes every colour from the theme. The System look keeps iOS's own colours and takes
+    // only the pencil from the theme (iOS's link blue for the default theme).
+    var page: Color { pick(\.page, system: Color(.systemBackground)) }
+    var ink: Color { pick(\.ink, system: Color(.label)) }
+    var soft: Color { pick(\.soft, system: Color(.secondaryLabel)) }
+    var rule: Color { pick(\.rule, system: Color(.separator)) }
+    var sunk: Color { pick(\.sunk, system: Color(.secondarySystemBackground)) }
+    /// Links and editorial marks.
+    var pencil: Color {
+        appearance == .system && colors == .pencilBlue ? Color(.link) : dynamic(\.pencil)
+    }
+    /// Text on a pencil-coloured button. In dark palettes the pencil is light, so white text on it fails
+    /// contrast: each palette names its own (the dark page colour there, about 9:1 on #8CC0E4).
+    var onPencil: Color { dynamic(\.onPencil) }
+
+    private func pick(_ key: KeyPath<Palette, UInt32>, system: Color) -> Color {
+        appearance == .studio ? dynamic(key) : system
     }
 
-    private func pick(studio: (UInt32, UInt32), system: Color) -> Color {
-        guard appearance == .studio else { return system }
-        return Color(UIColor { traits in
-            UIColor(hex: traits.userInterfaceStyle == .dark ? studio.1 : studio.0)
-        })
+    private func dynamic(_ key: KeyPath<Palette, UInt32>) -> Color {
+        let (light, dark) = (colors.light[keyPath: key], colors.dark[keyPath: key])
+        return Color(UIColor { traits in UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light) })
     }
 
     private static func size(_ style: Font.TextStyle) -> CGFloat {
@@ -92,18 +160,22 @@ nonisolated struct Theme: Sendable {
 
     /// CSS for the post page's web view. Fonts follow Dynamic Type through `-apple-system-body`.
     var css: String {
+        typealias Colors = (page: String, ink: String, soft: String, rule: String, pencil: String, sunk: String)
+        func css(_ p: Palette) -> Colors {
+            func h(_ v: UInt32) -> String { "#" + String(format: "%06x", v) }
+            return (h(p.page), h(p.ink), h(p.soft), h(p.rule), h(p.pencil), h(p.sunk))
+        }
         let fonts: (prose: String, apparatus: String)
-        let light: (page: String, ink: String, soft: String, rule: String, pencil: String, sunk: String)
-        let dark: (page: String, ink: String, soft: String, rule: String, pencil: String, sunk: String)
+        var light: Colors, dark: Colors
         switch appearance {
         case .studio:
             fonts = ("\"Iowan Old Style\", \"Palatino Linotype\", Palatino, Charter, Georgia, serif", "-apple-system, sans-serif")
-            light = ("#fafbfb", "#1b2426", "#5c686b", "#dde3e5", "#23608c", "#eef1f3")
-            dark = ("#14191a", "#e3e7e7", "#95a2a5", "#2b3436", "#8cc0e4", "#1d2426")
+            (light, dark) = (css(colors.light), css(colors.dark))
         case .system:
             fonts = ("-apple-system, sans-serif", "-apple-system, sans-serif")
             light = ("#ffffff", "#000000", "#6b6b70", "#d1d1d6", "#0a66d6", "#f2f2f7")
             dark = ("#000000", "#ffffff", "#98989f", "#38383a", "#4ea1ff", "#1c1c1e")
+            if colors != .pencilBlue { (light.pencil, dark.pencil) = (css(colors.light).pencil, css(colors.dark).pencil) }
         }
         let lineHeight = appearance == .studio ? "1.65" : "1.45"
         return """

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import Blyg
 
@@ -174,6 +175,56 @@ struct ThemeTests {
         let css = Theme(appearance: .system).css
         #expect(!css.contains("Iowan"))
         #expect(css.contains("font-family: -apple-system, sans-serif; line-height: 1.45"))
+    }
+
+    /// WCAG contrast ratio between two sRGB colours.
+    static func contrast(_ a: UInt32, _ b: UInt32) -> Double {
+        func luminance(_ v: UInt32) -> Double {
+            let c = [16, 8, 0].map { Double((v >> UInt32($0)) & 0xFF) / 255 }
+                .map { $0 <= 0.04045 ? $0 / 12.92 : pow(($0 + 0.055) / 1.055, 2.4) }
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+        }
+        let (x, y) = (luminance(a), luminance(b))
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+
+    @Test(arguments: ColorTheme.allCases)
+    func everyThemesTextPassesAA(_ colors: ColorTheme) {
+        for p in [colors.light, colors.dark] {
+            for (name, text) in [("ink", p.ink), ("soft", p.soft), ("pencil", p.pencil)] {
+                for ground in [p.page, p.sunk] {
+                    #expect(Self.contrast(text, ground) >= 4.5, "\(colors) \(name) on \(String(ground, radix: 16))")
+                }
+            }
+            #expect(Self.contrast(p.onPencil, p.pencil) >= 4.5, "\(colors) text on a pencil button")
+        }
+        // The System look puts the theme's pencil on iOS's own backgrounds, in the modes the theme can show
+        // (Paper is always light and Ink always dark).
+        if colors.scheme != .dark {
+            for ground: UInt32 in [0xFFFFFF, 0xF2F2F7] { #expect(Self.contrast(colors.light.pencil, ground) >= 4.5, "\(colors) System light") }
+        }
+        if colors.scheme != .light {
+            for ground: UInt32 in [0x000000, 0x1C1C1E] { #expect(Self.contrast(colors.dark.pencil, ground) >= 4.5, "\(colors) System dark") }
+        }
+    }
+
+    @Test func aThemeColoursThePostPage() {
+        let css = Theme(appearance: .studio, colors: .moss).css
+        #expect(css.contains("--pencil: #3a6b3f"))
+        #expect(css.contains("--page: #141a14")) // dark
+        #expect(Theme(appearance: .system, colors: .moss).css.contains("--pencil: #3a6b3f"))
+        #expect(Theme(appearance: .system).css.contains("--pencil: #0a66d6")) // the default keeps iOS's blue
+    }
+
+    /// Every alternate icon the picker offers is in the built app's Info.plist (the asset catalog puts it there).
+    @Test func everyIconChoiceIsInTheApp() throws {
+        let icons = try #require(Bundle.main.object(forInfoDictionaryKey: "CFBundleIcons") as? [String: Any])
+        let alternates = try #require(icons["CFBundleAlternateIcons"] as? [String: Any])
+        for choice in AppIconChoice.allCases {
+            guard let name = choice.iconName else { continue }
+            #expect(alternates[name] != nil, "\(name) missing from CFBundleAlternateIcons")
+        }
+        #expect(alternates.count == AppIconChoice.allCases.count - 1)
     }
 
     @Test func postPageEscapesWhatTheAppAddsAndKeepsTheBlygsHTML() throws {

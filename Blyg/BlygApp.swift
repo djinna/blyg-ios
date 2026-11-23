@@ -34,11 +34,13 @@ struct BlygApp: App {
 /// instead of re-evaluating the whole scene (which left Settings unable to take a second tap).
 struct ThemedRoot: View {
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .studio
+    @AppStorage(ColorTheme.storageKey) private var colors: ColorTheme = .pencilBlue
 
     var body: some View {
-        let theme = Theme(appearance: appearance)
+        let theme = Theme(appearance: appearance, colors: colors)
         RootView()
             .environment(\.theme, theme)
             .tint(theme.pencil)
+            .preferredColorScheme(colors.scheme)
     }
 }
