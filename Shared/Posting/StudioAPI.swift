@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // A small hand-written client for the Blygger Studio owner API: only the calls this app makes.
 // Names follow Studio's OpenAPI operationIds (contract 5.14.0, Studio 0.65.0). Checked against the
@@ -109,10 +110,40 @@ nonisolated struct URLSessionTransport: HTTPTransport {
 
     struct NotHTTP: Error {}
 
+    /// URLSession follows redirects by itself, after `StudioClient.send` has checked the first URL, so each
+    /// request gets a `RedirectGuard`. A refused redirect is an error, whatever the redirecting answer held.
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let (data, response) = try await session.data(for: request)
+        let redirects = RedirectGuard()
+        let data: Data, response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request, delegate: redirects)
+        } catch {
+            throw redirects.refused ? StudioClient.redirectRefused : error
+        }
+        guard !redirects.refused else { throw StudioClient.redirectRefused }
         guard let http = response as? HTTPURLResponse else { throw NotHTTP() }
         return (data, http)
+    }
+}
+
+/// Lets one request follow a redirect only while it stays on the server it was first sent to: https, the same
+/// host and the same port (`StudioClient.sameHTTPSServer`). Anything else is refused before the next request
+/// is made, so neither the token nor the post leaves the blyg's own server.
+nonisolated final class RedirectGuard: NSObject, URLSessionTaskDelegate {
+    private let state = OSAllocatedUnfairLock(initialState: false)
+
+    /// True once a redirect has been refused.
+    var refused: Bool { state.withLock { $0 } }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
+        // Each hop is held to the first URL, not the one before it, so a chain can't walk away a step at a time.
+        if let first = task.originalRequest?.url, let next = request.url, StudioClient.sameHTTPSServer(next, first) {
+            completionHandler(request)
+        } else {
+            state.withLock { $0 = true }
+            completionHandler(nil)
+        }
     }
 }
 
@@ -136,12 +167,21 @@ nonisolated struct StudioClient: Sendable {
     /// host and port (no port means 443); anything else gets `{origin}api`, where the token was checked.
     static func trustedAPI(_ advertised: URL?, forOrigin origin: URL) -> URL? {
         guard isHTTPS(origin) else { return nil }
-        guard let advertised, isHTTPS(advertised),
-              let host = advertised.host()?.lowercased(), !host.isEmpty, host == origin.host()?.lowercased(),
-              (advertised.port ?? 443) == (origin.port ?? 443)
-        else { return apiBase(forOrigin: origin) }
+        guard let advertised, sameHTTPSServer(advertised, origin) else { return apiBase(forOrigin: origin) }
         return advertised
     }
+
+    /// True when both URLs are https on the same host and port (no port means 443): the one server a token,
+    /// or a redirect of a request carrying it, may go to.
+    static func sameHTTPSServer(_ a: URL, _ b: URL) -> Bool {
+        guard isHTTPS(a), isHTTPS(b),
+              let host = a.host()?.lowercased(), !host.isEmpty, host == b.host()?.lowercased()
+        else { return false }
+        return (a.port ?? 443) == (b.port ?? 443)
+    }
+
+    static let redirectRefused = StudioError(status: 0, code: "redirect-refused",
+                                             message: "The blyg redirected this request to another address, and the app didn't follow: the token only goes to the blyg's own https address.")
 
     func getCapabilities() async throws -> StudioCapabilities {
         try await send(Requests.getCapabilities(api: api, token: token))

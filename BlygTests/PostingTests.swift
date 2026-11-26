@@ -336,7 +336,9 @@ struct ConnectTests {
         #expect(!model.timeline.isEmpty)
 
         await #expect(throws: LibraryModel.ConnectFailure.needsHTTPS) { try await model.connect(Self.httpOrigin, token: "secret") }
+        // Says why, and doesn't promise reading: iOS blocks plain-http loads to public hosts.
         #expect(LibraryModel.describe(.needsHTTPS).contains("https"))
+        #expect(!LibraryModel.describe(.needsHTTPS).localizedCaseInsensitiveContains("read"))
         #expect(tokens.token(for: Self.httpOrigin) == nil)
         #expect(!model.isConnected(Self.httpOrigin))
         #expect(transport.sent.isEmpty)

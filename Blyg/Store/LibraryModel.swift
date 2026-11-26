@@ -308,7 +308,8 @@ final class LibraryModel {
         switch failure {
         case .empty: return "Paste the token first."
         case .rejected: return "The blyg didn't accept that token. Check you copied all of it, and that it's a REST API token."
-        case .needsHTTPS: return StudioClient.needsHTTPS.message + " This blyg is http, so this app can't post to it. You can still read it."
+        // No "you can still read it" here: iOS blocks plain-http loads to public hosts, so often it can't be read either.
+        case .needsHTTPS: return StudioClient.needsHTTPS.message + " This blyg's address is http, so this app can't post to it. If it also has an https address, follow that one to post."
         case .noOwnerAPI(let api): return "There's no Blygger Studio owner API at \(api.absoluteString), so this app can't post to this blyg. You can still read it."
         case .other(let message): return message
         }
