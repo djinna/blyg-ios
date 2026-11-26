@@ -125,11 +125,20 @@ nonisolated struct StudioClient: Sendable {
     /// Where a blyg's owner API lives: `{origin}api`, the origin being the blyg's mount.
     static func apiBase(forOrigin origin: URL) -> URL { origin.appending(path: "api") }
 
-    /// The API a blyg's token may be sent to. What a Studio advertises (or a copy of that saved earlier) is used
-    /// only when it's https on the blyg's own host; anything else gets `{origin}api`, where the token was checked.
-    static func trustedAPI(_ advertised: URL?, forOrigin origin: URL) -> URL {
-        guard let advertised, advertised.scheme?.lowercased() == "https",
-              let host = advertised.host()?.lowercased(), !host.isEmpty, host == origin.host()?.lowercased()
+    /// A token only ever travels over https, so it's never sent in the clear.
+    static func isHTTPS(_ url: URL) -> Bool { url.scheme?.lowercased() == "https" }
+
+    static let needsHTTPS = StudioError(status: 0, code: "needs-https",
+                                        message: "Posting needs an https blyg, so the token is never sent in the clear.")
+
+    /// The API a blyg's token may be sent to, or nil when the blyg isn't https: then nothing may carry its token.
+    /// What a Studio advertises (or a copy of that saved earlier) is used only when it's https on the blyg's own
+    /// host and port (no port means 443); anything else gets `{origin}api`, where the token was checked.
+    static func trustedAPI(_ advertised: URL?, forOrigin origin: URL) -> URL? {
+        guard isHTTPS(origin) else { return nil }
+        guard let advertised, isHTTPS(advertised),
+              let host = advertised.host()?.lowercased(), !host.isEmpty, host == origin.host()?.lowercased(),
+              (advertised.port ?? 443) == (origin.port ?? 443)
         else { return apiBase(forOrigin: origin) }
         return advertised
     }
@@ -168,6 +177,8 @@ nonisolated struct StudioClient: Sendable {
     }
 
     private func send<T: Decodable>(_ request: URLRequest) async throws -> T {
+        // Every request made here carries the token, so none leaves over anything but https.
+        guard let url = request.url, Self.isHTTPS(url) else { throw Self.needsHTTPS }
         let (data, response) = try await transport.send(request)
         guard (200..<300).contains(response.statusCode) else {
             throw Self.error(status: response.statusCode, data: data)

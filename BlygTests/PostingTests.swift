@@ -64,15 +64,44 @@ struct StudioRequestTests {
     @Test func theTokenOnlyGoesToTheBlygsOwnHostOverHTTPS() {
         let origin = URL(string: "https://example.com/blyg/")!
         let fallback = URL(string: "https://example.com/blyg/api")!
-        func trusted(_ advertised: String) -> URL { StudioClient.trustedAPI(URL(string: advertised), forOrigin: origin) }
-        #expect(trusted("https://example.com/studio/api").absoluteString == "https://example.com/studio/api")
-        #expect(trusted("https://EXAMPLE.com/studio/api").absoluteString == "https://EXAMPLE.com/studio/api")
+        func trusted(_ advertised: String) -> URL? { StudioClient.trustedAPI(URL(string: advertised), forOrigin: origin) }
+        #expect(trusted("https://example.com/studio/api")?.absoluteString == "https://example.com/studio/api")
+        #expect(trusted("https://EXAMPLE.com/studio/api")?.absoluteString == "https://EXAMPLE.com/studio/api")
         #expect(trusted("https://elsewhere.example/api") == fallback)
         #expect(trusted("http://example.com/studio/api") == fallback)
         #expect(trusted("https://example.com.elsewhere.example/api") == fallback)
         #expect(trusted("https://example.com@elsewhere.example/api") == fallback)
         #expect(trusted("/studio/api") == fallback)
         #expect(StudioClient.trustedAPI(nil, forOrigin: origin) == fallback)
+    }
+
+    @Test func theAPIMustBeOnTheBlygsOwnPort() {
+        func trusted(_ advertised: String, origin: String) -> String? {
+            StudioClient.trustedAPI(URL(string: advertised), forOrigin: URL(string: origin)!)?.absoluteString
+        }
+        // No port on https means 443, on either side.
+        #expect(trusted("https://example.com:443/studio/api", origin: "https://example.com/") == "https://example.com:443/studio/api")
+        #expect(trusted("https://example.com/studio/api", origin: "https://example.com:443/") == "https://example.com/studio/api")
+        #expect(trusted("https://example.com:8443/studio/api", origin: "https://example.com:8443/") == "https://example.com:8443/studio/api")
+        // Another port is another server: fall back to the blyg's own.
+        #expect(trusted("https://example.com:8443/studio/api", origin: "https://example.com/") == "https://example.com/api")
+        #expect(trusted("https://example.com/studio/api", origin: "https://example.com:8443/") == "https://example.com:8443/api")
+    }
+
+    @Test func aBlygThatIsntHTTPSHasNoAPIForItsToken() {
+        let origin = URL(string: "http://example.com/")!
+        #expect(StudioClient.trustedAPI(URL(string: "https://example.com/api"), forOrigin: origin) == nil)
+        #expect(StudioClient.trustedAPI(URL(string: "http://example.com/api"), forOrigin: origin) == nil)
+        #expect(StudioClient.trustedAPI(nil, forOrigin: origin) == nil)
+    }
+
+    @Test func theClientSendsNothingToAnAPIThatIsntHTTPS() async {
+        let transport = FakeTransport(["GET http://example.com/api/capabilities": (200, SandboxResponses.capabilities)])
+        let client = StudioClient(api: URL(string: "http://example.com/api")!, token: "t", transport: transport)
+        await #expect(throws: StudioClient.needsHTTPS) { _ = try await client.getCapabilities() }
+        await #expect(throws: StudioClient.needsHTTPS) { _ = try await client.createItem(contentMd: "Hello") }
+        await #expect(throws: StudioClient.needsHTTPS) { _ = try await client.listSubscriptions() }
+        #expect(transport.sent.isEmpty)
     }
 
     @Test func createItemSendsABlankFragmentWithBearerAuth() {
@@ -289,6 +318,53 @@ struct ConnectTests {
         #expect(model.blyg(Fixtures.origin)?.postingAPI?.absoluteString == "https://sample.example/api")
     }
 
+    /// The fixture blyg served over http: every fixture URL with its scheme changed.
+    static let httpOrigin = URL(string: "http://sample.example/")!
+    static func httpFetcher() -> FakeFetcher {
+        FakeFetcher(Dictionary(uniqueKeysWithValues: Fixtures.responses.map { url, response in
+            (url.replacingOccurrences(of: "https://", with: "http://"), FakeFetcher.Answer(status: response.status, body: response.body))
+        }))
+    }
+
+    @Test func anHTTPBlygCanBeFollowedAndReadButNeverGetsTheToken() async throws {
+        let tokens = MemoryTokenStore()
+        let transport = FakeTransport(["GET http://sample.example/api/capabilities": (200, SandboxResponses.capabilities)])
+        let model = LibraryModel(store: nil, fetcher: Self.httpFetcher(), tokens: tokens, transport: transport)
+        // Reading is untouched: the blyg is added under its http origin, with its posts.
+        #expect(try await model.add("http://sample.example/") == Self.httpOrigin)
+        #expect(model.blyg(Self.httpOrigin)?.items.isEmpty == false)
+        #expect(!model.timeline.isEmpty)
+
+        await #expect(throws: LibraryModel.ConnectFailure.needsHTTPS) { try await model.connect(Self.httpOrigin, token: "secret") }
+        #expect(LibraryModel.describe(.needsHTTPS).contains("https"))
+        #expect(tokens.token(for: Self.httpOrigin) == nil)
+        #expect(!model.isConnected(Self.httpOrigin))
+        #expect(transport.sent.isEmpty)
+    }
+
+    @Test func aSavedConnectionToAnHTTPBlygIsNeverUsed() async throws {
+        let store = LibraryStore(directory: FileManager.default.temporaryDirectory.appending(path: "blyg tests \(UUID().uuidString)"))
+        defer { try? FileManager.default.removeItem(at: store.directory) }
+        var blyg = try SavedBlyg.sample()
+        blyg.origin = Self.httpOrigin
+        blyg.postingAPI = URL(string: "http://sample.example/api")
+        blyg.studioFollows = []
+        try store.save(Library(blygs: [blyg]))
+        let tokens = MemoryTokenStore()
+        try tokens.save("secret", for: Self.httpOrigin)
+        let transport = FakeTransport(["GET http://sample.example/api/subscriptions": (200, #"{"items":[],"page":{"nextCursor":null}}"#)])
+        let model = LibraryModel(store: store, fetcher: Self.httpFetcher(), tokens: tokens, transport: transport)
+
+        #expect(model.blyg(Self.httpOrigin)?.postingAPI == nil)
+        #expect(model.postingBlygs.isEmpty)
+        #expect(model.poster(for: Self.httpOrigin) == nil)
+        await #expect(throws: LibraryModel.ConnectFailure.self) { _ = try await model.importSubscriptions(from: Self.httpOrigin) }
+        await model.followStudiosNewSubscriptions(Self.httpOrigin)
+        await model.refresh(Self.httpOrigin)
+        #expect(model.blyg(Self.httpOrigin)?.lastError == nil) // still read
+        #expect(transport.sent.isEmpty)
+    }
+
     @Test func aRejectedTokenIsNotSaved() async throws {
         let tokens = MemoryTokenStore()
         let transport = FakeTransport(["GET https://sample.example/api/capabilities": (401, #"{"code":"unauthorized","message":"no"}"#)])
@@ -336,6 +412,11 @@ struct KeychainTests {
         // An API on another host, as an earlier build could have saved, is never handed back: the token would follow it.
         try store.save("fourth", for: origin, title: "My blyg", api: URL(string: "https://x.example/api")!)
         #expect(store.connections().first { $0.origin == origin }?.api == StudioClient.apiBase(forOrigin: origin))
+        // A token saved for an http blyg is no connection: the Share extension never sees it.
+        let insecure = URL(string: "http://keychain-test-\(UUID().uuidString.lowercased()).example/")!
+        defer { store.remove(for: insecure) }
+        try store.save("fifth", for: insecure)
+        #expect(!store.connections().contains { $0.origin == insecure })
         store.remove(for: origin)
         #expect(store.token(for: origin) == nil)
         #expect(!store.connections().contains { $0.origin == origin })

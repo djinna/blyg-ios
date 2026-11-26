@@ -97,9 +97,11 @@ nonisolated struct KeychainTokenStore: TokenStore {
         return items.compactMap { attributes -> Connection? in
             guard let account = attributes[kSecAttrAccount as String] as? String, let origin = URL(string: account) else { return nil }
             let title = (attributes[kSecAttrLabel as String] as? String) ?? origin.host() ?? account
-            let api = (attributes[kSecAttrGeneric as String] as? Data).flatMap { URL(string: String(decoding: $0, as: UTF8.self)) }
+            let saved = (attributes[kSecAttrGeneric as String] as? Data).flatMap { URL(string: String(decoding: $0, as: UTF8.self)) }
             // Checked again on the way out: an item saved before connect checked the URL may still hold a bad one.
-            return Connection(origin: origin, title: title, api: StudioClient.trustedAPI(api, forOrigin: origin))
+            // A blyg that isn't https is no connection at all.
+            guard let api = StudioClient.trustedAPI(saved, forOrigin: origin) else { return nil }
+            return Connection(origin: origin, title: title, api: api)
         }
         .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
