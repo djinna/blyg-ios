@@ -23,20 +23,26 @@ final class LibraryModel {
     private let tokens: any TokenStore
     private let transport: any HTTPTransport
     private let buildTimeline: @Sendable (Library) -> [TimelineEntry]
+    /// While several blygs are being refreshed at once, the least time between one timeline rebuild finishing
+    /// and the next starting: posts appear as blygs arrive, without a rebuild for every blyg.
+    private let timelinePace: Duration
     /// The blygs with a token in the Keychain. Remembered here because asking the Keychain is a blocking call
     /// to another process, and views ask on every redraw: once per blyg during a refresh. Only this model
     /// saves or removes tokens (the Share extension just reads them), so it can't go stale while the app runs.
     private var tokenHolders: Set<URL> = []
 
-    /// `buildTimeline` is `Library.timeline()` in the app; tests pass their own to count and hold rebuilds.
+    /// `buildTimeline` is `Library.timeline()` in the app; tests pass their own to count and hold rebuilds,
+    /// and their own `timelinePace` so they needn't depend on half a second passing or not.
     init(store: (any LibraryPersisting)?, fetcher: any Fetching, tokens: any TokenStore = MemoryTokenStore(),
          transport: any HTTPTransport = URLSessionTransport(),
-         buildTimeline: @escaping @Sendable (Library) -> [TimelineEntry] = { $0.timeline() }) {
+         buildTimeline: @escaping @Sendable (Library) -> [TimelineEntry] = { $0.timeline() },
+         timelinePace: Duration = .milliseconds(500)) {
         self.store = store
         self.fetcher = fetcher
         self.tokens = tokens
         self.transport = transport
         self.buildTimeline = buildTimeline
+        self.timelinePace = timelinePace
         if let store {
             let (library, outcome) = store.load()
             self.library = library
@@ -100,9 +106,10 @@ final class LibraryModel {
         await refreshTogether(stale.map(\.origin))
     }
 
-    /// Refreshes several blygs at once. Each one's result goes into the library as it arrives, but the timeline
-    /// is rebuilt once and the file saved once, when all have answered: both cost time in proportion to the whole
-    /// library, so doing them per blyg made a refresh of many blygs cost many times over.
+    /// Refreshes several blygs at once. Each one's result goes into the library as it arrives. Rebuilding the
+    /// timeline and saving the file both cost time in proportion to the whole library, so doing them per blyg
+    /// made a refresh of many blygs cost many times over. Instead the timeline is rebuilt at a pace while blygs
+    /// arrive (`rebuildTimelineSoon`) and once more when all have answered, and the file is saved once, at the end.
     private func refreshTogether(_ origins: [URL]) async {
         guard !origins.isEmpty else { return }
         refreshingTogether += 1
@@ -113,7 +120,8 @@ final class LibraryModel {
             }
         }
         // Only what this refresh's own blygs left for it and nothing has saved or rebuilt since: a second
-        // refresh running alongside doesn't finish this one's work early, or do it twice.
+        // refresh running alongside doesn't finish this one's work early, or do it twice. The rebuild here
+        // doesn't wait for the pace: these are the last posts of the refresh.
         if awaitingSave.contains(batch.id) { startSaving() }
         if awaitingTimeline.contains(batch.id) {
             await rebuildTimeline()
@@ -123,8 +131,8 @@ final class LibraryModel {
         refreshingTogether -= 1
     }
 
-    /// One refresh of several blygs. Its blygs leave the save and the timeline rebuild for its end (see
-    /// `awaitingSave` and `awaitingTimeline`).
+    /// One refresh of several blygs. Its blygs leave the save for its end, and the timeline for the next paced
+    /// rebuild or its end, whichever comes first (see `awaitingSave` and `awaitingTimeline`).
     private final class Batch {
         var id: ObjectIdentifier { ObjectIdentifier(self) }
     }
@@ -155,6 +163,7 @@ final class LibraryModel {
         save(in: batch)
         if let batch {
             awaitingTimeline.insert(batch.id)
+            rebuildTimelineSoon()
         } else {
             await rebuildTimeline()
         }
@@ -182,8 +191,12 @@ final class LibraryModel {
     /// The library has changed since the rebuild under way took its copy.
     @ObservationIgnored private var timelineStale = false
     /// The refreshes of several blygs that have changed the library and not yet had it rebuilt into the
-    /// timeline: each will ask for that at its end, unless a rebuild asked for meanwhile has covered it.
+    /// timeline: the next paced rebuild covers them, or else each asks for a rebuild at its end.
     @ObservationIgnored private var awaitingTimeline: Set<ObjectIdentifier> = []
+    /// The paced rebuild waiting its turn, if any.
+    @ObservationIgnored private var pacedRebuild: Task<Void, Never>?
+    /// When the last rebuild finished.
+    @ObservationIgnored private var lastRebuild: ContinuousClock.Instant?
     /// Blygs unfollowed since the rebuild under way took its copy of the library, which still has them.
     @ObservationIgnored private var unfollowedDuringRebuild: Set<URL> = []
 
@@ -192,6 +205,9 @@ final class LibraryModel {
     /// always has the last word and an older, slower rebuild can't land on top of a newer one.
     private func rebuildTimeline() async {
         awaitingTimeline = []
+        // This rebuild takes along whatever a paced one was waiting to show.
+        pacedRebuild?.cancel()
+        pacedRebuild = nil
         timelineStale = true
         if timelineTask == nil {
             timelineTask = Task {
@@ -215,11 +231,33 @@ final class LibraryModel {
                     } else if !unchanged {
                         timeline = built
                     } // else nothing new, as on most refreshes: the rows stay as they are
+                    lastRebuild = .now
                 }
                 timelineTask = nil
             }
         }
         await timelineTask?.value
+    }
+
+    /// One of several blygs being refreshed at once has arrived: its posts should show soon, though not by
+    /// rebuilding for every blyg. One rebuild is set to start once the rebuild under way (if any) has finished
+    /// and `timelinePace` has passed since; blygs that arrive before then go into that same rebuild. Doesn't wait.
+    private func rebuildTimelineSoon() {
+        guard pacedRebuild == nil else { return }
+        pacedRebuild = Task {
+            while true {
+                if let underWay = timelineTask { await underWay.value }
+                // Cancelled: another rebuild was asked for meanwhile. It covers this one, and has cleared `pacedRebuild`.
+                guard !Task.isCancelled else { return }
+                guard let last = lastRebuild else { break }
+                let wait = last + timelinePace - ContinuousClock.now
+                guard wait > .zero else { break }
+                try? await Task.sleep(for: wait)
+                guard !Task.isCancelled else { return }
+            }
+            pacedRebuild = nil
+            if !awaitingTimeline.isEmpty { await rebuildTimeline() }
+        }
     }
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
