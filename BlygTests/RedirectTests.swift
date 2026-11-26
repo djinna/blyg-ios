@@ -8,7 +8,8 @@ import Testing
 /// reaches it. Tests run side by side, so each one uses hosts of its own.
 final class RedirectingNetwork: URLProtocol, @unchecked Sendable {
     enum Answer {
-        case redirect(Int, to: String)
+        /// `droppingToken` proposes the next request without its Authorization header, as URLSession can.
+        case redirect(Int, to: String, droppingToken: Bool = false)
         case body(Int, String)
     }
 
@@ -31,6 +32,12 @@ final class RedirectingNetwork: URLProtocol, @unchecked Sendable {
         state.withLock { $0.seen.filter { $0.url?.host()?.hasSuffix(suffix) == true } }
     }
 
+    /// "METHOD URL" for each request that carried `token`, in order, whatever its host.
+    static func requests(carrying token: String) -> [String] {
+        state.withLock { $0.seen.filter { $0.value(forHTTPHeaderField: "Authorization") == "Bearer \(token)" } }
+            .map { "\($0.httpMethod ?? "") \($0.url!.absoluteString)" }
+    }
+
     /// The real posting transport, with this network under it.
     static func transport() -> URLSessionTransport {
         let config = URLSessionTransport.defaultConfiguration()
@@ -48,11 +55,12 @@ final class RedirectingNetwork: URLProtocol, @unchecked Sendable {
             return state.answers[url.absoluteString]
         }
         switch answer {
-        case .redirect(let status, let location):
+        case .redirect(let status, let location, let droppingToken):
             let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Location": location])!
             // As a server's 307 or 308 would have it: the same method, headers (the token among them) and body.
             var next = request
             next.url = URL(string: location)
+            if droppingToken { next.setValue(nil, forHTTPHeaderField: "Authorization") }
             client?.urlProtocol(self, wasRedirectedTo: next, redirectResponse: response)
             // When the redirect isn't followed, the redirecting answer is the answer, as on the real network.
             finish(response, body: "")
@@ -109,16 +117,29 @@ struct RedirectTests {
         #expect(RedirectingNetwork.requests(toHostsEnding: zone) == ["POST https://blyg.\(zone)/api/items"])
     }
 
-    @Test(arguments: ["https://blyg.ZONE/studio/api/capabilities", "https://BLYG.ZONE:443/studio/api/capabilities"])
-    func aRedirectOnTheBlygsOwnServerIsFollowed(_ pattern: String) async throws {
+    /// Followed, and with the token: once when the proposed request still has it, once when it arrives without.
+    @Test(arguments: ["https://blyg.ZONE/studio/api/capabilities", "https://BLYG.ZONE:443/studio/api/capabilities"], [false, true])
+    func aRedirectOnTheBlygsOwnServerIsFollowedWithTheToken(_ pattern: String, droppingToken: Bool) async throws {
         let target = pattern.replacingOccurrences(of: "ZONE", with: zone)
         RedirectingNetwork.set([
-            "https://blyg.\(zone)/api/capabilities": .redirect(307, to: target),
+            "https://blyg.\(zone)/api/capabilities": .redirect(307, to: target, droppingToken: droppingToken),
             target: .body(200, SandboxResponses.capabilities),
         ])
         let capabilities = try await client().getCapabilities()
         #expect(capabilities.contractVersion == "5.14.0")
         #expect(RedirectingNetwork.requests(toHostsEnding: zone) == ["GET https://blyg.\(zone)/api/capabilities", "GET \(target)"])
+        #expect(RedirectingNetwork.seen(zone).map { $0.value(forHTTPHeaderField: "Authorization") } == ["Bearer secret", "Bearer secret"])
+    }
+
+    /// The token is put back only on the blyg's own server: a redirect elsewhere that arrives without it is refused all the same.
+    @Test func aRedirectElsewhereWithoutTheTokenIsStillRefused() async {
+        let target = "https://elsewhere.\(zone)/api/capabilities"
+        RedirectingNetwork.set([
+            "https://blyg.\(zone)/api/capabilities": .redirect(307, to: target, droppingToken: true),
+            target: .body(200, SandboxResponses.capabilities),
+        ])
+        await #expect(throws: StudioClient.redirectRefused) { _ = try await client().getCapabilities() }
+        #expect(RedirectingNetwork.requests(toHostsEnding: zone) == ["GET https://blyg.\(zone)/api/capabilities"])
     }
 
     @Test func aChainThatLeavesTheServerLaterIsRefusedThere() async {
@@ -143,13 +164,15 @@ struct RedirectTests {
         let tokens = MemoryTokenStore()
         let model = LibraryModel(store: nil, fetcher: FakeFetcher.sample(), tokens: tokens, transport: RedirectingNetwork.transport())
         try await model.add("sample.example")
+        // The fixture blyg's host is the same on every run, so this run's requests are picked out by its token.
+        let token = "secret-\(zone)"
         await #expect(throws: LibraryModel.ConnectFailure.other(StudioClient.redirectRefused.message)) {
-            try await model.connect(Fixtures.origin, token: "secret")
+            try await model.connect(Fixtures.origin, token: token)
         }
         #expect(tokens.token(for: Fixtures.origin) == nil)
         #expect(!model.isConnected(Fixtures.origin))
         #expect(RedirectingNetwork.requests(toHostsEnding: zone).isEmpty)
-        #expect(RedirectingNetwork.requests(toHostsEnding: "sample.example") == ["GET https://sample.example/api/capabilities"])
+        #expect(RedirectingNetwork.requests(carrying: token) == ["GET https://sample.example/api/capabilities"])
     }
 
     @Test func theSameServerMeansHTTPSTheSameHostAndTheSamePort() {

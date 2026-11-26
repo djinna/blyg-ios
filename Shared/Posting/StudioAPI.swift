@@ -138,11 +138,20 @@ nonisolated final class RedirectGuard: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
         // Each hop is held to the first URL, not the one before it, so a chain can't walk away a step at a time.
-        if let first = task.originalRequest?.url, let next = request.url, StudioClient.sameHTTPSServer(next, first) {
-            completionHandler(request)
+        if let first = task.originalRequest, let firstURL = first.url, let nextURL = request.url,
+           StudioClient.sameHTTPSServer(nextURL, firstURL) {
+            // The request URLSession proposes can arrive without the Authorization header. On the blyg's own
+            // server the token still belongs, and without it a good token would look rejected.
+            var next = request
+            if next.value(forHTTPHeaderField: "Authorization") == nil,
+               let token = first.value(forHTTPHeaderField: "Authorization") {
+                next.setValue(token, forHTTPHeaderField: "Authorization")
+            }
+            completionHandler(next)
         } else {
             state.withLock { $0 = true }
             completionHandler(nil)
+            task.cancel() // the redirecting answer's body isn't wanted: don't wait for it or hold it
         }
     }
 }
