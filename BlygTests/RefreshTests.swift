@@ -76,7 +76,10 @@ struct RefreshTests {
     /// Where the saved file differs from the model: empty when everything is saved. Not `==` on the two
     /// libraries, because saved dates drop their fractions of a second; so dates may differ by up to a second.
     func unsaved(_ f: Following) -> [String] {
-        let (saved, live) = (f.store.load().0, f.model.library)
+        let (saved, outcome) = f.store.load()
+        let live = f.model.library
+        guard outcome == .loaded else { return ["the file itself: \(outcome)"] } // not what a backup happens to hold
+        guard saved.version == live.version else { return ["version: saved \(saved.version), in the model \(live.version)"] }
         guard saved.blygs.map(\.origin) == live.blygs.map(\.origin) else {
             return ["blygs: saved \(saved.blygs.map(\.origin.absoluteString)), in the model \(live.blygs.map(\.origin.absoluteString))"]
         }
@@ -88,6 +91,7 @@ struct RefreshTests {
         for (a, b) in zip(saved.blygs, live.blygs) {
             let name = b.origin.host() ?? b.origin.absoluteString
             if a.manifest != b.manifest { differences.append("\(name): manifest") }
+            if !near(a.addedAt, b.addedAt) { differences.append("\(name): added") }
             if a.lastError != b.lastError { differences.append("\(name): error \(a.lastError ?? "none") / \(b.lastError ?? "none")") }
             if !near(a.lastRefresh, b.lastRefresh) { differences.append("\(name): last refresh") }
             if a.postingAPI != b.postingAPI { differences.append("\(name): posting API") }
@@ -95,7 +99,7 @@ struct RefreshTests {
             if Set(a.items.keys) != Set(b.items.keys) { differences.append("\(name): items \(a.items.keys.sorted()) / \(b.items.keys.sorted())") }
             for (id, item) in b.items {
                 guard let other = a.items[id] else { continue }
-                if other.version != item.version || other.kind != item.kind || other.document != item.document
+                if other.id != item.id || other.version != item.version || other.kind != item.kind || other.document != item.document
                     || !near(other.versionSeenAt, item.versionSeenAt) { differences.append("\(name): item \(id)") }
             }
         }
@@ -224,8 +228,9 @@ struct RefreshTests {
     }
 
     @Test func aPacedRebuildCoveredByAnotherDoesNotComeBackEarly() async throws {
-        let pace = Duration.seconds(1)
-        let f = try await following(pace: pace) // the last rebuild was just now: the next paced one is a second away
+        // Two seconds, so a slow machine doesn't use up the pace before the test has looked.
+        let pace = Duration.seconds(2)
+        let f = try await following(pace: pace) // the last rebuild was just now: the next paced one is two seconds away
         defer { f.store.removeFiles() }
         f.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "second")
         f.fetcher.publish("9b9b9b9b9b9b9b9b9b9b9b9b9b", on: "third")
@@ -264,6 +269,7 @@ struct RefreshTests {
 
         let refresh = Task { await reopened.refreshAll() }
         await until { slow.wasReached && reopened.refreshing == [Self.origin("third")] && reopened.blyg(Self.origin("second"))?.items.count == 1 }
+        try await Task.sleep(for: .milliseconds(100)) // a rebuild free to start at once would have by now
         #expect(timeline.builds == 0) // not a second build right behind the opening one
         slow.release()
         await refresh.value
@@ -285,6 +291,21 @@ struct RefreshTests {
         withObservationTracking { _ = f.model.timeline } onChange: { unfollowed.isSet = true }
         f.model.remove(Self.origin("second"))
         #expect(unfollowed.isSet)
+        await f.model.saveFinished()
+    }
+
+    @Test func unfollowingABlygWithNoPostsShowingLeavesTheRowsAlone() async throws {
+        let f = try await following()
+        defer { f.store.removeFiles() }
+        let rows = storage(f.model.timeline)
+        #expect(rows != nil)
+        let told = Flag()
+        withObservationTracking { _ = f.model.timeline } onChange: { told.isSet = true }
+
+        f.model.remove(Self.origin("fourth")) // it has no posts
+        #expect(!told.isSet)
+        #expect(storage(f.model.timeline) == rows) // not copied either
+        #expect(f.model.timeline == f.model.library.timeline())
         await f.model.saveFinished()
     }
 
@@ -576,6 +597,7 @@ struct RefreshTests {
     @Test func aSaveAlreadyWaitingItsTurnCoversARefreshThatHasNothingMoreToAdd() async throws {
         let f = try await following()
         defer { f.store.removeFiles() }
+        f.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "second") // so the waiting write's copy differs from the first's by a post
         let saves = f.store.saves
         let gates = Dictionary(uniqueKeysWithValues: (["sample"] + Self.hosts).map { ($0, f.fetcher.delay("https://\($0).example/blyg.json")) })
         let hold = f.store.holdNextSave()
@@ -591,6 +613,7 @@ struct RefreshTests {
         hold.release()
         await until { f.store.saves == saves + 2 }
         await f.model.saveFinished()               // the waiting write took them along
+        #expect(f.store.load().0.blygs.first { $0.origin == Self.origin("second") }?.items.count == 1)
         #expect(unsaved(f) == [])
         gates["fourth"]?.release()                 // the refresh ends with nothing new (fourth was unfollowed)
         await refresh.value
@@ -598,6 +621,72 @@ struct RefreshTests {
 
         #expect(!hold.gaveUp)
         #expect(f.store.saves == saves + 2) // so it doesn't write the same library again
+    }
+
+    @Test func aWaitingSaveThatFailsLeavesTheRefreshItCoveredToSaveAtItsEnd() async throws {
+        let f = try await following()
+        defer { f.store.removeFiles() }
+        f.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "second")
+        let saves = f.store.saves
+        let gates = Dictionary(uniqueKeysWithValues: (["sample"] + Self.hosts).map { ($0, f.fetcher.delay("https://\($0).example/blyg.json")) })
+        let hold = f.store.holdNextSave()
+        f.store.failSave(2)
+
+        let refresh = Task { await f.model.refreshAll() }
+        await until { f.model.refreshing.count == 4 && gates.values.allSatisfy(\.wasReached) }
+        f.model.remove(Self.origin("fourth"))      // a write starts, and is slow;
+        await until { hold.wasReached }
+        f.model.disconnect(Self.origin("second"))  // another is asked for, and waits its turn.
+        let before = answers(f)
+        for host in ["sample", "second", "third"] { gates[host]?.release() }
+        await until { f.model.library.blygs.allSatisfy { $0.lastRefresh != before[$0.origin] } } // three blygs arrive, one with a post
+        hold.release()
+        await until { f.store.saves == saves + 2 }
+        await f.model.saveFinished()               // the waiting write took them along, and failed
+        #expect(unsaved(f) != [])
+        gates["fourth"]?.release()                 // the refresh ends with nothing new (fourth was unfollowed)...
+        await refresh.value
+        await f.model.saveFinished()
+
+        #expect(!hold.gaveUp)
+        #expect(f.store.saves == saves + 3)        // ...and still saves: its post never reached the file
+        #expect(f.store.load().0.blygs.first { $0.origin == Self.origin("second") }?.items.count == 1)
+        #expect(unsaved(f) == [])
+    }
+
+    @Test func aRebuildAlreadyWaitingItsTurnCoversARefreshThatHasNothingMoreToAdd() async throws {
+        let f = try await following()
+        defer { f.store.removeFiles() }
+        f.fetcher.set("https://sixth.example/blyg.json", .init(body: #"{"blyg":"0.4","title":"sixth"}"#))
+        f.fetcher.set("https://sixth.example/items/index.json", .init(body: #"{"items":[]}"#))
+        f.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "second")
+        let gates = Dictionary(uniqueKeysWithValues: (["sample"] + Self.hosts).map { ($0, f.fetcher.delay("https://\($0).example/blyg.json")) })
+        let build = f.timeline.holdNextBuild()
+
+        let refresh = Task { await f.model.refreshAll() }
+        await until { f.model.refreshing.count == 4 && gates.values.allSatisfy(\.wasReached) }
+        f.model.remove(Self.origin("fourth"))
+        let one = Task { _ = try? await f.model.add("fifth.example") } // a blyg followed by hand: a rebuild starts, and is slow;
+        await until { build.wasReached }
+        let two = Task { _ = try? await f.model.add("sixth.example") } // another is asked for, and waits its turn.
+        await until { f.model.blyg(Self.origin("sixth"))?.lastRefresh != nil }
+        let before = answers(f)
+        let arriving = [Fixtures.origin, Self.origin("second"), Self.origin("third")]
+        for host in ["sample", "second", "third"] { gates[host]?.release() }
+        await until { arriving.allSatisfy { f.model.blyg($0)?.lastRefresh != before[$0] } } // three blygs arrive, one with a post
+        #expect(f.timeline.builds == 1)
+        build.release()
+        await until { f.model.timeline.contains { $0.document.id == "8a8a8a8a8a8a8a8a8a8a8a8a8a" } } // the waiting rebuild took them along
+        #expect(f.timeline.builds == 2)
+        gates["fourth"]?.release()                 // the refresh ends with nothing new (fourth was unfollowed)
+        await refresh.value
+        await one.value
+        await two.value
+        await f.model.saveFinished()
+
+        #expect(!build.gaveUp)
+        #expect(f.timeline.builds == 2) // so it doesn't build the same rows again
+        #expect(f.model.timeline == f.model.library.timeline())
     }
 
     @Test func aRefreshThatBringsNothingNewLeavesTheRowsAlone() async throws {
@@ -737,6 +826,43 @@ struct RefreshTests {
         await f.model.saveFinished()
         #expect(saved().blygs.first?.studioFollows == [Self.origin("second"), Self.origin("fifth"), Self.origin("sixth")])
         #expect(saved().blygs.count == 6)
+    }
+
+    @Test func aBlygFollowedByHandWhileAStudiosListIsWorkedThroughIsRememberedToo() async throws {
+        let transport = FakeTransport(Self.studio("sample", follows: ["second"]))
+        let f = try await following(transport: transport)
+        defer { f.store.removeFiles() }
+        for host in ["sixth", "seventh"] {
+            f.fetcher.set("https://\(host).example/blyg.json", .init(body: #"{"blyg":"0.4","title":"\#(host)"}"#))
+            f.fetcher.set("https://\(host).example/items/index.json", .init(body: #"{"items":[]}"#))
+        }
+        try await f.model.connect(Fixtures.origin, token: "secret")
+        _ = try await f.model.importSubscriptions(from: Fixtures.origin)
+        transport.set("GET https://sample.example/api/subscriptions", (200, Self.subscriptions(["second", "fifth", "sixth", "seventh"])))
+        let slow = f.fetcher.delay("https://fifth.example/blyg.json")
+        let slower = f.fetcher.delay("https://seventh.example/blyg.json")
+        func remembered() -> [URL]? { f.model.blyg(Fixtures.origin)?.studioFollows }
+
+        let refresh = Task { await f.model.refresh(Fixtures.origin) }
+        await until { slow.wasReached }          // "fifth" is being added...
+        try await f.model.add("sixth.example")   // ...and "sixth" is followed by hand meanwhile
+        func asked() -> Int { f.fetcher.requested.filter { $0.hasPrefix("https://sixth.example/") }.count }
+        let byHand = asked()
+        slow.release()
+        await until { slower.wasReached }        // "seventh" is being added: "sixth"'s turn has come and gone
+        #expect(remembered() == [Self.origin("second"), Self.origin("fifth"), Self.origin("sixth")])
+        // Unfollowed now and the app closed, "sixth" mustn't look new to the next refresh and come back.
+        f.model.remove(Self.origin("sixth"))
+        f.model.enteredBackground()
+        await f.model.saveFinished()
+        #expect(f.store.load().0.blygs.first?.studioFollows == [Self.origin("second"), Self.origin("fifth"), Self.origin("sixth")])
+
+        slower.release()
+        await refresh.value
+        await f.model.saveFinished()
+        #expect(f.model.blyg(Self.origin("sixth")) == nil)
+        #expect(remembered() == ["second", "fifth", "sixth", "seventh"].map(Self.origin))
+        #expect(asked() == byHand) // the Studio's list didn't follow it a second time
     }
 
     @Test func aConnectedBlygCostsNoKeychainReadsToDrawAndItsStudioIsReadOffTheMainActor() async throws {
