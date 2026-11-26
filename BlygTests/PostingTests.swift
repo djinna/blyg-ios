@@ -365,6 +365,7 @@ struct ConnectTests {
         await model.refresh(Self.httpOrigin)
         #expect(model.blyg(Self.httpOrigin)?.lastError == nil) // still read
         #expect(transport.sent.isEmpty)
+        await model.saveFinished() // before the folder is removed
     }
 
     @Test func aRejectedTokenIsNotSaved() async throws {
