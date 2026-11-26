@@ -7,8 +7,12 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var answers: [String: (Int, String)]
     private(set) var sent: [URLRequest] = []
+    private var onMain: [String] = []
 
     init(_ answers: [String: (Int, String)]) { self.answers = answers }
+
+    /// The requests sent on the main thread: their caller, and its decoding of the answer, were on the main actor.
+    var keysSentOnMainThread: [String] { lock.withLock { onMain } }
 
     func set(_ key: String, _ answer: (Int, String)) { lock.withLock { answers[key] = answer } }
 
@@ -16,8 +20,10 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let key = "\(request.httpMethod ?? "GET") \(request.url!.absoluteString)"
+        let main = onMainThread()
         let answer = lock.withLock { () -> (Int, String)? in
             sent.append(request)
+            if main { onMain.append(key) }
             return answers[key]
         }
         let (status, body) = answer ?? (404, #"{"code":"not-found","message":"not found"}"#)

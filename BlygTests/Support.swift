@@ -110,9 +110,13 @@ final class CountingStore: LibraryPersisting, @unchecked Sendable {
     private var count = 0
     private var onMain = false
     private var hold: Hold?
+    private var failNext = false
 
     var saves: Int { lock.withLock { count } }
     var savedOnMainThread: Bool { lock.withLock { onMain } }
+
+    /// The next save writes nothing and throws, as a full disk would.
+    func failNextSave() { lock.withLock { failNext = true } }
 
     /// The next save blocks its thread until the returned hold is released.
     func holdNextSave() -> Hold {
@@ -125,12 +129,14 @@ final class CountingStore: LibraryPersisting, @unchecked Sendable {
 
     func save(_ library: Library) throws {
         let main = onMainThread()
-        let hold = lock.withLock { () -> Hold? in
+        let (hold, fail) = lock.withLock { () -> (Hold?, Bool) in
             count += 1
             if main { onMain = true }
-            return self.hold
+            defer { failNext = false }
+            return (self.hold, failNext)
         }
         hold?.wait()
+        if fail { throw CocoaError(.fileWriteOutOfSpace) }
         try store.save(library)
     }
 
@@ -167,4 +173,21 @@ final class TimelineCounter: @unchecked Sendable {
         hold?.wait()
         return library.timeline()
     }
+}
+
+/// A token store in memory that counts how often a token is asked for (in the app, each is a call to the Keychain).
+final class CountingTokens: TokenStore, @unchecked Sendable {
+    private let tokens = MemoryTokenStore()
+    private let lock = NSLock()
+    private var count = 0
+
+    var reads: Int { lock.withLock { count } }
+
+    func token(for origin: URL) -> String? {
+        lock.withLock { count += 1 }
+        return tokens.token(for: origin)
+    }
+    func save(_ token: String, for origin: URL, title: String, api: URL) throws { try tokens.save(token, for: origin, title: title, api: api) }
+    func remove(for origin: URL) { tokens.remove(for: origin) }
+    func connections() -> [Connection] { tokens.connections() }
 }
