@@ -125,6 +125,15 @@ nonisolated struct StudioClient: Sendable {
     /// Where a blyg's owner API lives: `{origin}api`, the origin being the blyg's mount.
     static func apiBase(forOrigin origin: URL) -> URL { origin.appending(path: "api") }
 
+    /// The API a blyg's token may be sent to. What a Studio advertises (or a copy of that saved earlier) is used
+    /// only when it's https on the blyg's own host; anything else gets `{origin}api`, where the token was checked.
+    static func trustedAPI(_ advertised: URL?, forOrigin origin: URL) -> URL {
+        guard let advertised, advertised.scheme?.lowercased() == "https",
+              let host = advertised.host()?.lowercased(), !host.isEmpty, host == origin.host()?.lowercased()
+        else { return apiBase(forOrigin: origin) }
+        return advertised
+    }
+
     func getCapabilities() async throws -> StudioCapabilities {
         try await send(Requests.getCapabilities(api: api, token: token))
     }

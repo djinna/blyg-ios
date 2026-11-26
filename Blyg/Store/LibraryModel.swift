@@ -30,6 +30,11 @@ final class LibraryModel {
         } else {
             self.library = Library()
         }
+        // A posting API saved before connect checked it is checked now, so the token can't follow it to another host.
+        for index in library.blygs.indices {
+            guard let saved = library.blygs[index].postingAPI else { continue }
+            library.blygs[index].postingAPI = StudioClient.trustedAPI(saved, forOrigin: library.blygs[index].origin)
+        }
         timeline = library.timeline()
     }
 
@@ -196,7 +201,7 @@ final class LibraryModel {
         } catch {
             throw .other(error.localizedDescription)
         }
-        let advertised = URL(string: capabilities.endpoints.api) ?? api
+        let advertised = StudioClient.trustedAPI(URL(string: capabilities.endpoints.api), forOrigin: origin)
         guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
         do {
             try tokens.save(token, for: origin, title: library.blygs[index].title, api: advertised)

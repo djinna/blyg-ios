@@ -61,6 +61,20 @@ struct StudioRequestTests {
         #expect(StudioClient.apiBase(forOrigin: SandboxResponses.origin) == api)
     }
 
+    @Test func theTokenOnlyGoesToTheBlygsOwnHostOverHTTPS() {
+        let origin = URL(string: "https://example.com/blyg/")!
+        let fallback = URL(string: "https://example.com/blyg/api")!
+        func trusted(_ advertised: String) -> URL { StudioClient.trustedAPI(URL(string: advertised), forOrigin: origin) }
+        #expect(trusted("https://example.com/studio/api").absoluteString == "https://example.com/studio/api")
+        #expect(trusted("https://EXAMPLE.com/studio/api").absoluteString == "https://EXAMPLE.com/studio/api")
+        #expect(trusted("https://elsewhere.example/api") == fallback)
+        #expect(trusted("http://example.com/studio/api") == fallback)
+        #expect(trusted("https://example.com.elsewhere.example/api") == fallback)
+        #expect(trusted("https://example.com@elsewhere.example/api") == fallback)
+        #expect(trusted("/studio/api") == fallback)
+        #expect(StudioClient.trustedAPI(nil, forOrigin: origin) == fallback)
+    }
+
     @Test func createItemSendsABlankFragmentWithBearerAuth() {
         let req = Requests.createItem(api: api, token: "t0k", contentMd: "Hi", kind: "fragment")
         #expect(req.httpMethod == "POST")
@@ -236,6 +250,45 @@ struct ConnectTests {
         #expect(!model.isConnected(Fixtures.origin))
     }
 
+    /// Connects to sample.example with a Studio that advertises `advertised` as its API, then makes one more
+    /// call with the token. Returns the model, the token store and every request sent.
+    func connected(advertising advertised: String) async throws -> (LibraryModel, MemoryTokenStore, FakeTransport) {
+        let tokens = MemoryTokenStore()
+        let capabilities = SandboxResponses.capabilities.replacingOccurrences(of: "https://blyg-sandbox.exe.xyz/api", with: advertised)
+        let transport = FakeTransport(["GET https://sample.example/api/capabilities": (200, capabilities)])
+        let model = try await model(transport, tokens: tokens)
+        try await model.connect(Fixtures.origin, token: "secret")
+        _ = try? await model.importSubscriptions(from: Fixtures.origin)
+        return (model, tokens, transport)
+    }
+
+    @Test func anAdvertisedAPIOnTheSameHostIsUsed() async throws {
+        let (model, tokens, transport) = try await connected(advertising: "https://sample.example/studio/api")
+        #expect(model.blyg(Fixtures.origin)?.postingAPI?.absoluteString == "https://sample.example/studio/api")
+        #expect(tokens.connections().first?.api.absoluteString == "https://sample.example/studio/api")
+        #expect(transport.keys.last == "GET https://sample.example/studio/api/subscriptions")
+    }
+
+    @Test(arguments: ["https://elsewhere.example/api", "http://sample.example/studio/api"])
+    func anAdvertisedAPIOnAnotherHostOrOverHTTPIsIgnored(_ advertised: String) async throws {
+        let (model, tokens, transport) = try await connected(advertising: advertised)
+        #expect(model.blyg(Fixtures.origin)?.postingAPI?.absoluteString == "https://sample.example/api")
+        #expect(tokens.connections().first?.api.absoluteString == "https://sample.example/api")
+        // The token went nowhere but the blyg itself.
+        #expect(transport.keys == ["GET https://sample.example/api/capabilities", "GET https://sample.example/api/subscriptions"])
+        #expect(transport.sent.allSatisfy { $0.value(forHTTPHeaderField: "Authorization") == "Bearer secret" })
+    }
+
+    @Test func aSavedAPIOnAnotherHostIsNotUsed() throws {
+        let store = LibraryStore(directory: FileManager.default.temporaryDirectory.appending(path: "blyg tests \(UUID().uuidString)"))
+        defer { try? FileManager.default.removeItem(at: store.directory) }
+        var blyg = try SavedBlyg.sample()
+        blyg.postingAPI = URL(string: "https://elsewhere.example/api")
+        try store.save(Library(blygs: [blyg]))
+        let model = LibraryModel(store: store, fetcher: FakeFetcher.sample(), tokens: MemoryTokenStore(), transport: FakeTransport([:]))
+        #expect(model.blyg(Fixtures.origin)?.postingAPI?.absoluteString == "https://sample.example/api")
+    }
+
     @Test func aRejectedTokenIsNotSaved() async throws {
         let tokens = MemoryTokenStore()
         let transport = FakeTransport(["GET https://sample.example/api/capabilities": (401, #"{"code":"unauthorized","message":"no"}"#)])
@@ -276,9 +329,13 @@ struct KeychainTests {
         try store.save("second", for: origin)
         #expect(store.token(for: origin) == "second")
         #expect(store.token(for: URL(string: "https://other.example/")!) == nil)
-        try store.save("third", for: origin, title: "My blyg", api: URL(string: "https://x.example/api")!)
+        let studioAPI = origin.appending(path: "studio/api")
+        try store.save("third", for: origin, title: "My blyg", api: studioAPI)
         let mine = store.connections().first { $0.origin == origin }
-        #expect(mine == Connection(origin: origin, title: "My blyg", api: URL(string: "https://x.example/api")!))
+        #expect(mine == Connection(origin: origin, title: "My blyg", api: studioAPI))
+        // An API on another host, as an earlier build could have saved, is never handed back: the token would follow it.
+        try store.save("fourth", for: origin, title: "My blyg", api: URL(string: "https://x.example/api")!)
+        #expect(store.connections().first { $0.origin == origin }?.api == StudioClient.apiBase(forOrigin: origin))
         store.remove(for: origin)
         #expect(store.token(for: origin) == nil)
         #expect(!store.connections().contains { $0.origin == origin })
