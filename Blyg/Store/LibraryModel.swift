@@ -96,9 +96,12 @@ final class LibraryModel {
         tokens.remove(for: origin)
         tokenHolders.remove(origin)
         library.blygs.removeAll { $0.origin == origin }
-        // The same rows a rebuild would leave, without rescanning every post on the main actor.
+        // The same rows a rebuild would leave, without rescanning every post on the main actor: taken out in
+        // place, and a blyg with no posts showing changes nothing, so views aren't told and no row is copied.
+        if rows.contains(where: { $0.origin == origin }) {
+            withMutation(keyPath: \.timeline) { rows.removeAll { $0.origin == origin } }
+        }
         // A rebuild under way took its copy of the library with this blyg in it: it leaves these rows out too.
-        show(rows.filter { $0.origin != origin })
         if timelineTask != nil { unfollowedDuringRebuild.insert(origin) }
         save()
     }
@@ -305,7 +308,8 @@ final class LibraryModel {
             var retried = false
             while unsaved {
                 unsaved = false
-                awaitingSave = [] // this copy of the library has everything they were waiting to save
+                let covered = awaitingSave // this copy of the library has everything they were waiting to save
+                awaitingSave = []
                 let snapshot = library
                 do {
                     try await Self.offMain { try store.save(snapshot) }
@@ -313,6 +317,9 @@ final class LibraryModel {
                     retried = false
                 } catch {
                     saveFailed = true
+                    // Not covered after all. A refresh still running asks for its save at its end, as it would
+                    // have, and that save is the retry.
+                    awaitingSave.formUnion(covered)
                     Log.store.error("save failed: \(error.localizedDescription, privacy: .public)")
                     // In the background no later save may come to carry the retry: try once more now
                     // (once per failure in a row, so a full disk doesn't spin).
@@ -518,23 +525,26 @@ final class LibraryModel {
               let token = tokens.token(for: origin),
               let now = try? await Self.blygsFollowed(by: StudioClient(api: api, token: token, transport: transport))
         else { return }
-        // New to the Studio's list. Sets, so a list of thousands isn't searched once per entry on the main actor.
+        // New to the Studio's list. A set, so a list of thousands isn't searched once per entry on the main actor.
         let seen = Set(known)
-        var followed = Set(library.blygs.map(\.origin))
         let fresh = now.filter { !seen.contains($0) }
         guard self.blyg(origin)?.studioFollows != nil else { return } // switched off meanwhile
-        // Remembered as soon as each has been dealt with, and not before. If the app is closed part-way, the next
-        // refresh takes up the ones not yet tried and leaves alone the ones that were (one unfollowed here
-        // since doesn't come back). Those already followed here need nothing more, so they're remembered at once.
-        rememberStudioFollows(origin, fresh.filter(followed.contains), in: batch)
-        for new in fresh where !followed.contains(new) {
-            // Switched off, disconnected or unfollowed meanwhile: nothing more is followed.
-            guard self.blyg(origin)?.studioFollows != nil else { return }
-            _ = try? await add(new.absoluteString, in: batch)
-            rememberStudioFollows(origin, [new], in: batch)
-            followed = Set(library.blygs.map(\.origin)) // the library can have changed while that ran
+        if !fresh.isEmpty { // most refreshes find nothing new, and needn't look through the library at all
+            // Remembered as soon as each has been dealt with, and not before. If the app is closed part-way, the next
+            // refresh takes up the ones not yet tried and leaves alone the ones that were (one unfollowed here
+            // since doesn't come back). Those already followed here need nothing more, so they're remembered at once.
+            let followed = Set(library.blygs.map(\.origin))
+            rememberStudioFollows(origin, fresh.filter(followed.contains), in: batch)
+            for new in fresh where !followed.contains(new) {
+                // Switched off, disconnected or unfollowed meanwhile: nothing more is followed.
+                guard self.blyg(origin)?.studioFollows != nil else { return }
+                // One followed by hand while the earlier ones were being added needs no adding, but it has been
+                // dealt with and is remembered like the rest: unfollowed later, it mustn't look new next time.
+                if self.blyg(new) == nil { _ = try? await add(new.absoluteString, in: batch) }
+                rememberStudioFollows(origin, [new], in: batch)
+            }
+            guard self.blyg(origin)?.studioFollows != nil else { return } // switched off during the adds
         }
-        guard self.blyg(origin)?.studioFollows != nil else { return } // switched off during the adds
         setStudioFollows(origin, now, in: batch) // the Studio's own order, without any it has dropped
     }
 
