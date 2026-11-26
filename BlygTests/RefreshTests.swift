@@ -73,12 +73,33 @@ struct RefreshTests {
 
     final class Flag: @unchecked Sendable { var isSet = false }
 
-    /// What the file must agree with the model on. Not `==`: saved dates drop their fractions of a second.
-    func digest(_ library: Library) -> [String] {
-        library.blygs.map { blyg in
-            "\(blyg.origin.absoluteString) items \(blyg.items.keys.sorted()) error \(blyg.lastError ?? "none") "
-                + "refreshed \(blyg.lastRefresh != nil) follows \(blyg.studioFollows?.count ?? -1)"
+    /// Where the saved file differs from the model: empty when everything is saved. Not `==` on the two
+    /// libraries, because saved dates drop their fractions of a second; so dates may differ by up to a second.
+    func unsaved(_ f: Following) -> [String] {
+        let (saved, live) = (f.store.load().0, f.model.library)
+        guard saved.blygs.map(\.origin) == live.blygs.map(\.origin) else {
+            return ["blygs: saved \(saved.blygs.map(\.origin.absoluteString)), in the model \(live.blygs.map(\.origin.absoluteString))"]
         }
+        func near(_ a: Date?, _ b: Date?) -> Bool {
+            guard let a, let b else { return a == nil && b == nil }
+            return abs(a.timeIntervalSince(b)) <= 1
+        }
+        var differences: [String] = []
+        for (a, b) in zip(saved.blygs, live.blygs) {
+            let name = b.origin.host() ?? b.origin.absoluteString
+            if a.manifest != b.manifest { differences.append("\(name): manifest") }
+            if a.lastError != b.lastError { differences.append("\(name): error \(a.lastError ?? "none") / \(b.lastError ?? "none")") }
+            if !near(a.lastRefresh, b.lastRefresh) { differences.append("\(name): last refresh") }
+            if a.postingAPI != b.postingAPI { differences.append("\(name): posting API") }
+            if a.studioFollows != b.studioFollows { differences.append("\(name): Studio follows") }
+            if Set(a.items.keys) != Set(b.items.keys) { differences.append("\(name): items \(a.items.keys.sorted()) / \(b.items.keys.sorted())") }
+            for (id, item) in b.items {
+                guard let other = a.items[id] else { continue }
+                if other.version != item.version || other.kind != item.kind || other.document != item.document
+                    || !near(other.versionSeenAt, item.versionSeenAt) { differences.append("\(name): item \(id)") }
+            }
+        }
+        return differences
     }
 
     // MARK: One save per refresh, and rebuilds at a pace
@@ -100,17 +121,19 @@ struct RefreshTests {
         #expect(f.model.blyg(Self.origin("second"))?.items.count == 1)
         #expect(f.timeline.builds == 0)
         #expect(f.store.saves == saves)
+        let released = ContinuousClock.now
         slow.release()
         await refresh.value
+        #expect(ContinuousClock.now - released < .seconds(10)) // the end of the refresh doesn't wait out the minute
         await f.model.saveFinished()
 
-        #expect(f.timeline.builds == 1) // the end of the refresh doesn't wait for the pace
+        #expect(f.timeline.builds == 1)
         #expect(f.store.saves == saves + 1)
         // Nothing was lost by waiting: both new posts are showing, and the file holds what the model does.
         #expect(f.model.timeline == f.model.library.timeline())
         #expect(Set(f.model.timeline.map(\.document.id)).isSuperset(of: ["8a8a8a8a8a8a8a8a8a8a8a8a8a", "9b9b9b9b9b9b9b9b9b9b9b9b9b"]))
         #expect(f.model.blyg(Self.origin("fourth"))?.lastError == "Its blyg.json answered 500.")
-        #expect(digest(f.store.load().0) == digest(f.model.library))
+        #expect(unsaved(f) == [])
         #expect(!f.model.isRefreshingAny)
     }
 
@@ -173,6 +196,98 @@ struct RefreshTests {
         #expect(f.model.timeline == f.model.library.timeline())
     }
 
+    @Test func aPacedRebuildWaitsOutThePaceFromTheEndOfTheLastRebuild() async throws {
+        let pace = Duration.milliseconds(200)
+        let f = try await following(pace: pace)
+        defer { f.store.removeFiles() }
+        f.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "second")
+        let gates = Dictionary(uniqueKeysWithValues: Self.hosts.map { ($0, f.fetcher.delay("https://\($0).example/blyg.json")) })
+        let build = f.timeline.holdNextBuild()
+
+        let refresh = Task { await f.model.refreshAll() }
+        await until { build.wasReached } // the sample blyg's rebuild is under way...
+        gates["second"]?.release()
+        await until { f.model.blyg(Self.origin("second"))?.items.count == 1 }
+        try await Task.sleep(for: pace + .milliseconds(50)) // ...and takes longer than the pace
+        build.release()
+        await until { f.model.timeline.contains { $0.document.id == "8a8a8a8a8a8a8a8a8a8a8a8a8a" } }
+
+        // second's rebuild didn't start the moment the long one ended, though the pace had passed since that one started.
+        let spans = f.timeline.spans
+        #expect(spans.count == 2)
+        if spans.count == 2 { #expect(spans[1].start - spans[0].end >= pace) }
+        gates["third"]?.release()
+        gates["fourth"]?.release()
+        await refresh.value
+        await f.model.saveFinished()
+        #expect(!build.gaveUp)
+    }
+
+    @Test func aPacedRebuildCoveredByAnotherDoesNotComeBackEarly() async throws {
+        let pace = Duration.seconds(1)
+        let f = try await following(pace: pace) // the last rebuild was just now: the next paced one is a second away
+        defer { f.store.removeFiles() }
+        f.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "second")
+        f.fetcher.publish("9b9b9b9b9b9b9b9b9b9b9b9b9b", on: "third")
+        let before = answers(f)
+        let third = f.fetcher.delay("https://third.example/blyg.json")
+        let fourth = f.fetcher.delay("https://fourth.example/blyg.json")
+
+        let refresh = Task { await f.model.refreshAll() }
+        await until { onlyStillOut(["third", "fourth"], [third, fourth], f, since: before) } // second's post waits for the pace
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(f.timeline.builds == 0)
+        await f.model.refresh(Fixtures.origin) // a refresh of one blyg rebuilds at once, and takes second's post along
+        #expect(f.timeline.builds == 1)
+        #expect(f.model.timeline.contains { $0.document.id == "8a8a8a8a8a8a8a8a8a8a8a8a8a" })
+        third.release() // third's post now waits a full pace from that rebuild, not what was left of the first wait
+        await until { f.model.timeline.contains { $0.document.id == "9b9b9b9b9b9b9b9b9b9b9b9b9b" } }
+
+        let spans = f.timeline.spans
+        #expect(spans.count == 2)
+        if spans.count == 2 { #expect(spans[1].start - spans[0].end >= pace) }
+        fourth.release()
+        await refresh.value
+        await f.model.saveFinished()
+    }
+
+    @Test func theFirstBlygsToAnswerAfterOpeningWaitOutThePaceToo() async throws {
+        let f = try await following()
+        defer { f.store.removeFiles() }
+        f.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "second")
+        // The app opens again: a new model on the same file, which builds its timeline once as it starts.
+        let timeline = TimelineCounter()
+        let reopened = LibraryModel(store: f.store, fetcher: f.fetcher, buildTimeline: { timeline.build($0) }, timelinePace: .seconds(60))
+        #expect(reopened.library.blygs.count == 4)
+        timeline.reset()
+        let slow = f.fetcher.delay("https://third.example/blyg.json")
+
+        let refresh = Task { await reopened.refreshAll() }
+        await until { slow.wasReached && reopened.refreshing == [Self.origin("third")] && reopened.blyg(Self.origin("second"))?.items.count == 1 }
+        #expect(timeline.builds == 0) // not a second build right behind the opening one
+        slow.release()
+        await refresh.value
+        await reopened.saveFinished()
+        #expect(timeline.builds == 1)
+        #expect(reopened.timeline.contains { $0.document.id == "8a8a8a8a8a8a8a8a8a8a8a8a8a" })
+    }
+
+    @Test func viewsAreToldWhenTheTimelineChanges() async throws {
+        let f = try await following()
+        defer { f.store.removeFiles() }
+        f.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "second")
+        let rebuilt = Flag()
+        withObservationTracking { _ = f.model.timeline } onChange: { rebuilt.isSet = true }
+        await f.model.refreshAll()
+        #expect(rebuilt.isSet)
+
+        let unfollowed = Flag()
+        withObservationTracking { _ = f.model.timeline } onChange: { unfollowed.isSet = true }
+        f.model.remove(Self.origin("second"))
+        #expect(unfollowed.isSet)
+        await f.model.saveFinished()
+    }
+
     @Test func comingBackRefreshesStaleBlygsWithOneSaveAndRebuildsAtThePace() async throws {
         let f = try await following()
         defer { f.store.removeFiles() }
@@ -192,7 +307,7 @@ struct RefreshTests {
         #expect(f.timeline.builds == 1)
         #expect(f.store.saves == saves + 1)
         #expect(f.model.timeline.contains { $0.document.id == "8a8a8a8a8a8a8a8a8a8a8a8a8a" })
-        #expect(digest(f.store.load().0) == digest(f.model.library))
+        #expect(unsaved(f) == [])
     }
 
     @Test func oneBlygRefreshedAloneIsShownWhenItReturnsAndSavedOnce() async throws {
@@ -207,7 +322,7 @@ struct RefreshTests {
 
         #expect(f.timeline.builds == 1)
         #expect(f.store.saves == saves + 1)
-        #expect(digest(f.store.load().0) == digest(f.model.library))
+        #expect(unsaved(f) == [])
     }
 
     // MARK: The main actor stays free
@@ -284,7 +399,7 @@ struct RefreshTests {
 
         #expect(f.store.saves == saves + 2) // three changes, one more write
         #expect(f.store.load().0.blygs.map(\.origin) == [Fixtures.origin, Self.origin("second")])
-        #expect(digest(f.store.load().0) == digest(f.model.library))
+        #expect(unsaved(f) == [])
     }
 
     @Test func leavingTheAppMidRefreshSavesWhatHasArrivedThenEachBlygAsItArrives() async throws {
@@ -307,7 +422,7 @@ struct RefreshTests {
         await f.model.saveFinished()
         #expect(f.store.saves == saves + 1) // ...but not once the app may be suspended
         #expect(saved("second") == 1)
-        #expect(digest(f.store.load().0) == digest(f.model.library))
+        #expect(unsaved(f) == [])
 
         slow.release()
         await until { f.model.blyg(Self.origin("third"))?.items.count == 1 }
@@ -322,7 +437,7 @@ struct RefreshTests {
         await f.model.saveFinished()
         #expect(f.store.saves == saves + 3) // fourth was saved as it arrived; the end had nothing left to save
         #expect(saved("fourth") == 1)
-        #expect(digest(f.store.load().0) == digest(f.model.library))
+        #expect(unsaved(f) == [])
 
         f.model.becameActive() // back on screen: one save per refresh again
         await f.model.refreshAll()
@@ -387,7 +502,12 @@ struct RefreshTests {
         let launch = Task { await f.model.refreshAll() }
         await until { onlyStillOut("third", slow, f, since: before) }
         // Coming back now picks only "third", which is already being refreshed: this refresh has nothing of its own to finish.
-        await f.model.refreshStale(now: .now.addingTimeInterval(45))
+        let back = Flag()
+        Task {
+            await f.model.refreshStale(now: .now.addingTimeInterval(45))
+            back.isSet = true
+        }
+        await until { back.isSet } // with a deadline: if it waited for "third", this test would otherwise never end
         #expect(f.timeline.builds == 0)
         #expect(f.store.saves == saves)
         slow.release()
@@ -397,7 +517,7 @@ struct RefreshTests {
         #expect(f.timeline.builds == 1)
         #expect(f.store.saves == saves + 1)
         #expect(f.model.timeline.contains { $0.document.id == "8a8a8a8a8a8a8a8a8a8a8a8a8a" })
-        #expect(digest(f.store.load().0) == digest(f.model.library))
+        #expect(unsaved(f) == [])
     }
 
     @Test func aFailedWriteIsTriedAgainOnLeavingTheApp() async throws {
@@ -412,7 +532,7 @@ struct RefreshTests {
         f.model.enteredBackground()
         await f.model.saveFinished()
         #expect(f.store.load().0.blygs.count == 3)
-        #expect(digest(f.store.load().0) == digest(f.model.library))
+        #expect(unsaved(f) == [])
     }
 
     @Test func aWriteThatFailsWhileTheAppIsInTheBackgroundIsTriedAgainAtOnce() async throws {
@@ -430,6 +550,54 @@ struct RefreshTests {
 
         #expect(f.store.saves == saves + 2)
         #expect(f.store.load().0.blygs.count == 3)
+    }
+
+    @Test func eachWriteThatFailsInTheBackgroundGetsARetryOfItsOwn() async throws {
+        let f = try await following()
+        defer { f.store.removeFiles() }
+        let saves = f.store.saves
+        f.store.failSave(1)              // the first write fails,
+        let retry = f.store.holdSave(2)  // its retry works, but is slow,
+        f.store.failSave(3)              // and the write after that fails too
+        f.model.enteredBackground()
+
+        f.model.remove(Self.origin("fourth"))
+        await until { retry.wasReached }
+        f.model.remove(Self.origin("third")) // a change during the retry: the same writer goes round again
+        retry.release()
+        await f.model.saveFinished()
+
+        #expect(!retry.gaveUp)
+        #expect(f.store.saves == saves + 4)
+        #expect(f.store.load().0.blygs.count == 2)
+        #expect(unsaved(f) == [])
+    }
+
+    @Test func aSaveAlreadyWaitingItsTurnCoversARefreshThatHasNothingMoreToAdd() async throws {
+        let f = try await following()
+        defer { f.store.removeFiles() }
+        let saves = f.store.saves
+        let gates = Dictionary(uniqueKeysWithValues: (["sample"] + Self.hosts).map { ($0, f.fetcher.delay("https://\($0).example/blyg.json")) })
+        let hold = f.store.holdNextSave()
+
+        let refresh = Task { await f.model.refreshAll() }
+        await until { f.model.refreshing.count == 4 && gates.values.allSatisfy(\.wasReached) }
+        f.model.remove(Self.origin("fourth"))      // a write starts, and is slow;
+        await until { hold.wasReached }
+        f.model.disconnect(Self.origin("second"))  // another is asked for, and waits its turn.
+        let before = answers(f)
+        for host in ["sample", "second", "third"] { gates[host]?.release() }
+        await until { f.model.library.blygs.allSatisfy { $0.lastRefresh != before[$0.origin] } } // three blygs arrive, held back for the end
+        hold.release()
+        await until { f.store.saves == saves + 2 }
+        await f.model.saveFinished()               // the waiting write took them along
+        #expect(unsaved(f) == [])
+        gates["fourth"]?.release()                 // the refresh ends with nothing new (fourth was unfollowed)
+        await refresh.value
+        await f.model.saveFinished()
+
+        #expect(!hold.gaveUp)
+        #expect(f.store.saves == saves + 2) // so it doesn't write the same library again
     }
 
     @Test func aRefreshThatBringsNothingNewLeavesTheRowsAlone() async throws {
@@ -477,7 +645,7 @@ struct RefreshTests {
         await second.value
         await f.model.saveFinished()
         #expect(f.store.saves == saves + 2)
-        #expect(digest(f.store.load().0) == digest(f.model.library))
+        #expect(unsaved(f) == [])
     }
 
     @Test func aRefreshWaitsForARebuildAlreadyBringingItsPosts() async throws {

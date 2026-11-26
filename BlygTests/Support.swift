@@ -145,27 +145,33 @@ extension SavedBlyg {
     }
 }
 
-/// A real store in a temporary folder that counts its saves, notes the thread they ran on, and can hold one.
+/// A real store in a temporary folder that counts its saves, notes the thread they ran on, and can hold or fail chosen ones.
 final class CountingStore: LibraryPersisting, @unchecked Sendable {
     let store = LibraryStore(directory: FileManager.default.temporaryDirectory.appending(path: "blyg tests \(UUID().uuidString)"))
     private let lock = NSLock()
     private var count = 0
     private var onMain = false
-    private var hold: Hold?
-    private var failNext = false
+    private var holds: [Int: Hold] = [:]
+    private var failures: Set<Int> = []
 
     var saves: Int { lock.withLock { count } }
     var savedOnMainThread: Bool { lock.withLock { onMain } }
 
-    /// The next save writes nothing and throws, as a full disk would.
-    func failNextSave() { lock.withLock { failNext = true } }
-
     /// The next save blocks its thread until the returned hold is released.
-    func holdNextSave() -> Hold {
+    func holdNextSave() -> Hold { holdSave(1) }
+
+    /// The `n`th save from now blocks its thread until the returned hold is released.
+    func holdSave(_ n: Int) -> Hold {
         let hold = Hold()
-        lock.withLock { self.hold = hold }
+        lock.withLock { holds[count + n] = hold }
         return hold
     }
+
+    /// The next save writes nothing and throws, as a full disk would.
+    func failNextSave() { failSave(1) }
+
+    /// The `n`th save from now writes nothing and throws.
+    func failSave(_ n: Int) { lock.withLock { _ = failures.insert(count + n) } }
 
     func load() -> (Library, LibraryStore.LoadOutcome) { store.load() }
 
@@ -174,8 +180,7 @@ final class CountingStore: LibraryPersisting, @unchecked Sendable {
         let (hold, fail) = lock.withLock { () -> (Hold?, Bool) in
             count += 1
             if main { onMain = true }
-            defer { failNext = false }
-            return (self.hold, failNext)
+            return (holds[count], failures.contains(count))
         }
         hold?.wait()
         if fail { throw CocoaError(.fileWriteOutOfSpace) }
@@ -185,18 +190,21 @@ final class CountingStore: LibraryPersisting, @unchecked Sendable {
     func removeFiles() { try? FileManager.default.removeItem(at: store.directory) }
 }
 
-/// Builds the timeline as the app does, counting the builds, noting their thread, and able to hold one.
+/// Builds the timeline as the app does, counting the builds, noting their thread and their times, and able to hold one.
 final class TimelineCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
     private var onMain = false
     private var hold: Hold?
+    private var times: [(start: ContinuousClock.Instant, end: ContinuousClock.Instant)] = []
 
     var builds: Int { lock.withLock { count } }
     var builtOnMainThread: Bool { lock.withLock { onMain } }
+    /// When each finished build started and ended, in order.
+    var spans: [(start: ContinuousClock.Instant, end: ContinuousClock.Instant)] { lock.withLock { times } }
 
     /// Forgets the build the model does on the main actor as it opens, which is meant to be there.
-    func reset() { lock.withLock { count = 0; onMain = false } }
+    func reset() { lock.withLock { count = 0; onMain = false; times = [] } }
 
     /// The next build blocks its thread until the returned hold is released.
     func holdNextBuild() -> Hold {
@@ -207,13 +215,16 @@ final class TimelineCounter: @unchecked Sendable {
 
     func build(_ library: Library) -> [TimelineEntry] {
         let main = onMainThread()
+        let start = ContinuousClock.now
         let hold = lock.withLock { () -> Hold? in
             count += 1
             if main { onMain = true }
             return self.hold
         }
         hold?.wait()
-        return library.timeline()
+        let built = library.timeline()
+        lock.withLock { times.append((start, .now)) }
+        return built
     }
 }
 
