@@ -41,6 +41,38 @@ final class Hold: @unchecked Sendable {
     func release() { semaphore.signal() }
 }
 
+/// Keeps whoever reaches it waiting until released, without blocking a thread: a slow server, for putting the
+/// steps of a test in order. (`Hold` blocks its thread, which is the point where a test asks whether the main
+/// actor is free; but Swift's pool has few threads, and a test that blocks several at once stalls every test.)
+final class Gate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var open = false
+    private var reached = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    var wasReached: Bool { lock.withLock { reached } }
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            let through = lock.withLock { () -> Bool in
+                reached = true
+                if !open { waiting.append(continuation) }
+                return open
+            }
+            if through { continuation.resume() }
+        }
+    }
+
+    func release() {
+        let waiters = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
+            open = true
+            defer { waiting = [] }
+            return waiting
+        }
+        for waiter in waiters { waiter.resume() }
+    }
+}
+
 /// A fetcher that answers from a table, records what was asked, and can redirect.
 final class FakeFetcher: Fetching, @unchecked Sendable {
     struct Answer {
@@ -53,6 +85,7 @@ final class FakeFetcher: Fetching, @unchecked Sendable {
     private var answers: [String: Answer]
     private(set) var requested: [String] = []
     private var holds: [String: Hold] = [:]
+    private var gates: [String: Gate] = [:]
     private var onMain = false
 
     init(_ answers: [String: Answer] = [:]) { self.answers = answers }
@@ -65,6 +98,13 @@ final class FakeFetcher: Fetching, @unchecked Sendable {
         let hold = Hold()
         lock.withLock { holds[url] = hold }
         return hold
+    }
+
+    /// Requests for `url` wait, without blocking a thread, until the returned gate is released.
+    func delay(_ url: String) -> Gate {
+        let gate = Gate()
+        lock.withLock { gates[url] = gate }
+        return gate
     }
 
     /// The fictional blyg from the app's DEBUG fixtures.
@@ -80,12 +120,14 @@ final class FakeFetcher: Fetching, @unchecked Sendable {
 
     func get(_ url: URL) async throws -> FetchResult {
         let main = onMainThread()
-        let (answer, hold) = lock.withLock { () -> (Answer?, Hold?) in
+        let (hold, gate) = lock.withLock { () -> (Hold?, Gate?) in
             requested.append(url.absoluteString)
             if main { onMain = true }
-            return (answers[url.absoluteString], holds[url.absoluteString])
+            return (holds[url.absoluteString], gates[url.absoluteString])
         }
         hold?.wait()
+        await gate?.wait()
+        let answer = lock.withLock { answers[url.absoluteString] } // as it is once the wait is over
         guard let answer else { return FetchResult(data: Data("Not Found".utf8), finalURL: url, status: 404, contentType: "text/plain") }
         let final = answer.finalURL.flatMap(URL.init(string:)) ?? url
         return FetchResult(data: Data(answer.body.utf8), finalURL: final, status: answer.status, contentType: nil)
