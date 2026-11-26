@@ -1,9 +1,16 @@
 import Foundation
 import os
 
+/// What the model needs from the saved file. `LibraryStore` is the real one; tests wrap it to count and hold saves.
+nonisolated protocol LibraryPersisting: Sendable {
+    func load() -> (Library, LibraryStore.LoadOutcome)
+    /// Encodes and writes the whole library. Slow for a big one, and it blocks: never call it on the main actor.
+    func save(_ library: Library) throws
+}
+
 /// Saves the library as JSON in Application Support, atomically, keeping the last good copy.
 /// A file that won't decode is set aside, never overwritten, and the backup is loaded instead (ios.md: Data).
-nonisolated struct LibraryStore: Sendable {
+nonisolated struct LibraryStore: LibraryPersisting {
     let directory: URL
 
     var fileURL: URL { directory.appending(path: "library.json") }

@@ -16,7 +16,9 @@ nonisolated struct Syncer: Sendable {
     }
 
     /// Returns the updated blyg. Throws, leaving the caller's copy untouched, if the manifest or index can't be read.
-    func refresh(_ blyg: SavedBlyg, now: Date = .now) async throws -> SavedBlyg {
+    /// `@concurrent`: the decoding, sorting and merging run off the caller's actor. Without it this would run
+    /// on the main actor whenever the model calls it, since a plain async function stays on its caller's.
+    @concurrent func refresh(_ blyg: SavedBlyg, now: Date = .now) async throws -> SavedBlyg {
         var blyg = blyg
 
         let manifestResult = try? await fetcher.get(BlygURL.manifest(origin: blyg.origin))

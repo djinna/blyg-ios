@@ -17,7 +17,7 @@ struct BlygApp: App {
             return LibraryModel(store: nil, fetcher: URLSessionFetcher(), tokens: MemoryTokenStore(), transport: apiTransport())
         }
         #endif
-        return LibraryModel(store: .appSupport(), fetcher: URLSessionFetcher(), tokens: KeychainTokenStore(), transport: apiTransport())
+        return LibraryModel(store: LibraryStore.appSupport(), fetcher: URLSessionFetcher(), tokens: KeychainTokenStore(), transport: apiTransport())
     }
 
     /// The owner-API transport, with the DEBUG fixture network when the app runs with -useFixtures.

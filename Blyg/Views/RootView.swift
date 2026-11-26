@@ -41,11 +41,17 @@ struct RootView: View {
         }
         .task { await launch() }
         .onChange(of: scenePhase) { _, phase in
-            // Only on coming back from the background (launch() refreshes everything; Control Center doesn't count).
-            if phase == .background { wasInBackground = true }
-            if phase == .active, wasInBackground {
-                wasInBackground = false
-                Task { await model.refreshStale() }
+            if phase == .background {
+                wasInBackground = true
+                model.enteredBackground() // saves now whatever a refresh was holding back for its end
+            }
+            if phase == .active {
+                model.becameActive()
+                // Only on coming back from the background (launch() refreshes everything; Control Center doesn't count).
+                if wasInBackground {
+                    wasInBackground = false
+                    Task { await model.refreshStale() }
+                }
             }
         }
     }

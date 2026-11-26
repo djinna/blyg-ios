@@ -4,25 +4,35 @@ import Observation
 
 /// The app's state: the saved library, kept in sync with disk. Opens at once from what's saved;
 /// the network only ever adds to it.
+///
+/// This class is on the main actor (the project's default), so only quick work belongs in it. Fetching and
+/// decoding (`Syncer`, `Resolver`), building the timeline and writing the file all run off it: see
+/// "Timeline and saving" below.
 @Observable
 final class LibraryModel {
     private(set) var library: Library
     private(set) var timeline: [TimelineEntry] = []
     private(set) var refreshing: Set<URL> = []
+    /// Refreshes of several blygs at once that haven't finished: their timeline is still to come.
+    private var refreshingTogether = 0
     /// Set when the saved file couldn't be read at launch, so the app can say so instead of silently starting empty.
     private(set) var loadProblem: LibraryStore.LoadOutcome?
 
-    private let store: LibraryStore?
+    private let store: (any LibraryPersisting)?
     private let fetcher: any Fetching
     private let tokens: any TokenStore
     private let transport: any HTTPTransport
+    private let buildTimeline: @Sendable (Library) -> [TimelineEntry]
 
-    init(store: LibraryStore?, fetcher: any Fetching, tokens: any TokenStore = MemoryTokenStore(),
-         transport: any HTTPTransport = URLSessionTransport()) {
+    /// `buildTimeline` is `Library.timeline()` in the app; tests pass their own to count and hold rebuilds.
+    init(store: (any LibraryPersisting)?, fetcher: any Fetching, tokens: any TokenStore = MemoryTokenStore(),
+         transport: any HTTPTransport = URLSessionTransport(),
+         buildTimeline: @escaping @Sendable (Library) -> [TimelineEntry] = { $0.timeline() }) {
         self.store = store
         self.fetcher = fetcher
         self.tokens = tokens
         self.transport = transport
+        self.buildTimeline = buildTimeline
         if let store {
             let (library, outcome) = store.load()
             self.library = library
@@ -36,38 +46,40 @@ final class LibraryModel {
             guard let saved = library.blygs[index].postingAPI else { continue }
             library.blygs[index].postingAPI = StudioClient.trustedAPI(saved, forOrigin: library.blygs[index].origin)
         }
-        timeline = library.timeline()
+        // The one build on the main actor: the app opens with its saved posts already in place.
+        timeline = buildTimeline(library)
     }
 
-    var isRefreshingAny: Bool { !refreshing.isEmpty }
+    var isRefreshingAny: Bool { !refreshing.isEmpty || refreshingTogether > 0 }
 
     func blyg(_ origin: URL) -> SavedBlyg? { library.blygs.first { $0.origin == origin } }
 
     /// Resolves a URL to a blyg, adds it, then fetches its items. Returns the identity origin.
     @discardableResult
-    func add(_ input: String) async throws -> URL {
+    func add(_ input: String) async throws -> URL { try await add(input, together: false) }
+
+    @discardableResult
+    private func add(_ input: String, together: Bool) async throws -> URL {
         let resolved = try await Resolver(fetcher: fetcher).resolve(input)
         if blyg(resolved.origin) == nil {
             library.blygs.append(SavedBlyg(origin: resolved.origin, manifest: resolved.manifest, addedAt: .now))
-            save()
+            save(together: together)
         }
-        await refresh(resolved.origin)
+        await refresh(resolved.origin, together: together)
         return resolved.origin
     }
 
     func remove(_ origin: URL) {
         tokens.remove(for: origin)
         library.blygs.removeAll { $0.origin == origin }
-        timeline = library.timeline()
+        // The same rows a rebuild would leave, without rescanning every post on the main actor.
+        // A rebuild under way drops this blyg's rows too (see `rebuildTimeline`).
+        timeline.removeAll { $0.origin == origin }
         save()
     }
 
     func refreshAll() async {
-        await withTaskGroup(of: Void.self) { group in
-            for blyg in library.blygs {
-                group.addTask { await self.refresh(blyg.origin) }
-            }
-        }
+        await refreshTogether(library.blygs.map(\.origin))
     }
 
     /// Coming back to the app: catch up without hammering anyone. Your own blygs are refreshed after 30 seconds,
@@ -78,14 +90,29 @@ final class LibraryModel {
             guard let last = blyg.lastRefresh else { return true }
             return now.timeIntervalSince(last) > (own.contains(blyg.origin) ? 30 : 600)
         }
-        await withTaskGroup(of: Void.self) { group in
-            for blyg in stale {
-                group.addTask { await self.refresh(blyg.origin) }
-            }
-        }
+        await refreshTogether(stale.map(\.origin))
     }
 
-    func refresh(_ origin: URL) async {
+    /// Refreshes several blygs at once. Each one's result goes into the library as it arrives, but the timeline
+    /// is rebuilt once and the file saved once, when all have answered: both cost time in proportion to the whole
+    /// library, so doing them per blyg made a refresh of many blygs cost many times over.
+    private func refreshTogether(_ origins: [URL]) async {
+        guard !origins.isEmpty else { return }
+        refreshingTogether += 1
+        await withTaskGroup(of: Void.self) { group in
+            for origin in origins {
+                group.addTask { await self.refresh(origin, together: true) }
+            }
+        }
+        if saveDeferred { startSaving() }
+        if timelineDeferred { await rebuildTimeline() }
+        refreshingTogether -= 1
+    }
+
+    func refresh(_ origin: URL) async { await refresh(origin, together: false) }
+
+    /// `together`: this is one of several blygs in `refreshTogether`, which rebuilds the timeline and saves at its end.
+    private func refresh(_ origin: URL, together: Bool) async {
         guard let current = blyg(origin), !refreshing.contains(origin) else { return }
         refreshing.insert(origin)
         defer { refreshing.remove(origin) }
@@ -96,7 +123,7 @@ final class LibraryModel {
             // A failed refresh records why and changes nothing else (§13.2).
             guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
             library.blygs[index].lastError = Self.describe(error)
-            save()
+            save(together: together)
             return
         }
         guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return } // removed meanwhile
@@ -105,9 +132,101 @@ final class LibraryModel {
         merged.postingAPI = library.blygs[index].postingAPI
         merged.studioFollows = library.blygs[index].studioFollows
         library.blygs[index] = merged
-        timeline = library.timeline()
-        save()
-        if merged.studioFollows != nil { await followStudiosNewSubscriptions(origin) }
+        save(together: together)
+        if together { timelineDeferred = true } else { await rebuildTimeline() }
+        if merged.studioFollows != nil { await followStudiosNewSubscriptions(origin, together: together) }
+    }
+
+    // MARK: Timeline and saving, off the main actor
+
+    /// Runs work that blocks or takes long off the main actor, on Swift's shared pool.
+    @concurrent nonisolated private static func offMain<T: Sendable>(_ work: @Sendable () throws -> T) async rethrows -> T {
+        try work()
+    }
+
+    @ObservationIgnored private var timelineTask: Task<Void, Never>?
+    /// The library has changed since the rebuild under way took its copy.
+    @ObservationIgnored private var timelineStale = false
+    /// A refresh of several blygs has changed the library and will rebuild the timeline at its end.
+    @ObservationIgnored private var timelineDeferred = false
+
+    /// Rebuilds the timeline from the library, off the main actor, and returns once it's in place.
+    /// One rebuild runs at a time. A change that arrives meanwhile gets one more pass, so the newest library
+    /// always has the last word and an older, slower rebuild can't land on top of a newer one.
+    private func rebuildTimeline() async {
+        timelineDeferred = false
+        timelineStale = true
+        if timelineTask == nil {
+            timelineTask = Task {
+                while timelineStale {
+                    timelineStale = false
+                    let snapshot = library
+                    let build = buildTimeline
+                    let built = await Self.offMain { build(snapshot) }
+                    // A blyg unfollowed while this was being built is already out of the timeline: keep it out.
+                    let followed = Set(library.blygs.map(\.origin))
+                    timeline = built.filter { followed.contains($0.origin) }
+                }
+                timelineTask = nil
+            }
+        }
+        await timelineTask?.value
+    }
+
+    @ObservationIgnored private var saveTask: Task<Void, Never>?
+    /// The library has changed since the write under way took its copy.
+    @ObservationIgnored private var unsaved = false
+    /// A refresh of several blygs has changed the library and will save at its end.
+    @ObservationIgnored private var saveDeferred = false
+    @ObservationIgnored private var inBackground = false
+
+    /// Saves the library soon, off the main actor. `together`: the caller is one of several blygs being
+    /// refreshed at once, and one save at their end covers them all. Not in the background, though: there iOS
+    /// may stop the app before that end comes, so each blyg is saved as it arrives, as it always was.
+    private func save(together: Bool = false) {
+        guard store != nil else { return }
+        if together, !inBackground { saveDeferred = true } else { startSaving() }
+    }
+
+    /// One write runs at a time, each of the whole library as it is when the write starts. A change that arrives
+    /// during a write gets one more pass, so writes can't overtake each other and the last one holds the newest library.
+    private func startSaving() {
+        guard let store else { return }
+        saveDeferred = false
+        unsaved = true
+        guard saveTask == nil else { return }
+        saveTask = Task {
+            // If the app leaves the screen mid-write, iOS lets the write finish before suspending the app.
+            let time = BackgroundTime("Saving the library")
+            while unsaved {
+                unsaved = false
+                let snapshot = library
+                do {
+                    try await Self.offMain { try store.save(snapshot) }
+                } catch {
+                    Log.store.error("save failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+            saveTask = nil
+            time.end()
+        }
+    }
+
+    /// Returns once the saves asked for so far have reached the file. Saves held back for the end of a
+    /// refresh of several blygs aren't asked for until that end, or until `enteredBackground()`.
+    func saveFinished() async {
+        await saveTask?.value
+    }
+
+    /// The app has left the screen. iOS may suspend it within seconds and never resume it, so nothing waits any
+    /// longer: what a refresh was holding back for its end is saved now, and so is each blyg that arrives from here on.
+    func enteredBackground() {
+        inBackground = true
+        if saveDeferred { startSaving() }
+    }
+
+    func becameActive() {
+        inBackground = false
     }
 
     // MARK: Quote cards
@@ -275,16 +394,18 @@ final class LibraryModel {
 
     /// On refresh, while keeping in step: follow the blygs new to the Studio's list since last time. Never
     /// unfollows, and never re-adds one the person unfollowed here. Fails quietly; the next refresh tries again.
-    func followStudiosNewSubscriptions(_ origin: URL) async {
+    func followStudiosNewSubscriptions(_ origin: URL) async { await followStudiosNewSubscriptions(origin, together: false) }
+
+    private func followStudiosNewSubscriptions(_ origin: URL, together: Bool) async {
         guard let blyg = blyg(origin), let known = blyg.studioFollows, let api = blyg.postingAPI,
               let token = tokens.token(for: origin),
               let subscriptions = try? await StudioClient(api: api, token: token, transport: transport).listSubscriptions()
         else { return }
         let now = Self.blygOrigins(in: subscriptions)
         guard self.blyg(origin)?.studioFollows != nil else { return } // switched off meanwhile
-        setStudioFollows(origin, now)
+        setStudioFollows(origin, now, together: together)
         for new in now where !known.contains(new) && self.blyg(new) == nil {
-            _ = try? await add(new.absoluteString)
+            _ = try? await add(new.absoluteString, together: together)
         }
     }
 
@@ -293,10 +414,10 @@ final class LibraryModel {
             .compactMap { $0.origin.flatMap { URL(string: $0.trimmingCharacters(in: .whitespaces)) } }
     }
 
-    private func setStudioFollows(_ origin: URL, _ follows: [URL]?) {
+    private func setStudioFollows(_ origin: URL, _ follows: [URL]?, together: Bool = false) {
         guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
         library.blygs[index].studioFollows = follows
-        save()
+        save(together: together)
     }
 
     func poster(for origin: URL) -> Poster? {
@@ -313,11 +434,6 @@ final class LibraryModel {
         case .noOwnerAPI(let api): return "There's no Blygger Studio owner API at \(api.absoluteString), so this app can't post to this blyg. You can still read it."
         case .other(let message): return message
         }
-    }
-
-    private func save() {
-        guard let store else { return }
-        do { try store.save(library) } catch { Log.store.error("save failed: \(error.localizedDescription, privacy: .public)") }
     }
 
     static func describe(_ error: Error) -> String {

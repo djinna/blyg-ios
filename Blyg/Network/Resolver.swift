@@ -17,7 +17,8 @@ nonisolated struct Resolver: Sendable {
         case notFound(tried: [URL])
     }
 
-    func resolve(_ input: String) async throws -> Resolved {
+    /// `@concurrent`: a page of up to 8 MB may be scanned here, so it runs off the caller's actor (see `Syncer.refresh`).
+    @concurrent func resolve(_ input: String) async throws -> Resolved {
         guard let candidate = BlygURL.candidateOrigin(from: input) else { throw Failure.notAURL }
         var tried: [URL] = []
 
