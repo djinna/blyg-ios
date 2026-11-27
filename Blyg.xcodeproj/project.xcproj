@@ -65,7 +65,7 @@
         "ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS": "YES",
         "CODE_SIGN_ENTITLEMENTS": "Blyg.entitlements",
         "CODE_SIGN_STYLE": "Automatic",
-        "CURRENT_PROJECT_VERSION": "10",
+        "CURRENT_PROJECT_VERSION": "11",
         "DEVELOPMENT_TEAM": "K24RHPX75P",
         "ENABLE_PREVIEWS": "YES",
         "GENERATE_INFOPLIST_FILE": "YES",
@@ -107,7 +107,7 @@
       "build-settings": {
         "BUNDLE_LOADER": "$(TEST_HOST)",
         "CODE_SIGN_STYLE": "Automatic",
-        "CURRENT_PROJECT_VERSION": "10",
+        "CURRENT_PROJECT_VERSION": "11",
         "DEVELOPMENT_TEAM": "K24RHPX75P",
         "GENERATE_INFOPLIST_FILE": "YES",
         "MARKETING_VERSION": "0.1",
@@ -137,7 +137,7 @@
       ],
       "build-settings": {
         "CODE_SIGN_STYLE": "Automatic",
-        "CURRENT_PROJECT_VERSION": "10",
+        "CURRENT_PROJECT_VERSION": "11",
         "DEVELOPMENT_TEAM": "K24RHPX75P",
         "GENERATE_INFOPLIST_FILE": "YES",
         "MARKETING_VERSION": "0.1",
@@ -164,7 +164,7 @@
       "build-settings": {
         "CODE_SIGN_ENTITLEMENTS": "BlygShare.entitlements",
         "CODE_SIGN_STYLE": "Automatic",
-        "CURRENT_PROJECT_VERSION": "10",
+        "CURRENT_PROJECT_VERSION": "11",
         "DEVELOPMENT_TEAM": "K24RHPX75P",
         "GENERATE_INFOPLIST_FILE": "YES",
         "INFOPLIST_FILE": "BlygShare/Info.plist",
