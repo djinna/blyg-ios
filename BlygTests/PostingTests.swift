@@ -335,7 +335,7 @@ struct ConnectTests {
     @Test func anHTTPBlygCanBeFollowedAndReadButNeverGetsTheToken() async throws {
         let tokens = MemoryTokenStore()
         let transport = FakeTransport(["GET http://sample.example/api/capabilities": (200, SandboxResponses.capabilities)])
-        let model = LibraryModel(store: nil, fetcher: Self.httpFetcher(), tokens: tokens, transport: transport)
+        let model = LibraryModel(inMemoryWith: Self.httpFetcher(), tokens: tokens, transport: transport)
         // Reading is untouched: the blyg is added under its http origin, with its posts.
         #expect(try await model.add("http://sample.example/") == Self.httpOrigin)
         #expect(model.blyg(Self.httpOrigin)?.items.isEmpty == false)

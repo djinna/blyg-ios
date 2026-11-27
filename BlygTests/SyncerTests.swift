@@ -8,7 +8,7 @@ struct SyncerTests {
 
     @Test func firstRefreshShowsFragmentsAndThreadsOnly() async throws {
         let blyg = try await Syncer(fetcher: FakeFetcher.sample()).refresh(try .sample(), now: now)
-        let shown = Library(blygs: [blyg]).timeline().map(\.document.id)
+        let shown = Library(blygs: [blyg]).timeline(now: feedNow).map(\.document.id)
         #expect(shown == [Fixtures.thread, Fixtures.fragmentEdited, Fixtures.fragmentPlain])
         #expect(blyg.items[Fixtures.withdrawn]?.document == nil)       // withdrawn: rolled up to null
         #expect(blyg.items[Fixtures.withdrawn]?.version == 3)          // ...but the watermark stays
@@ -100,7 +100,7 @@ struct SyncerTests {
         var syncer = Syncer(fetcher: FakeFetcher.sample())
         syncer.maxDocumentsPerRefresh = 1
         let blyg = try await syncer.refresh(try .sample(), now: now)
-        #expect(Library(blygs: [blyg]).timeline().map(\.document.id) == [Fixtures.thread])
+        #expect(Library(blygs: [blyg]).timeline(now: feedNow).map(\.document.id) == [Fixtures.thread])
     }
 
     @Test func aFutureDatedPostDoesntStayOnTop() async throws {
@@ -109,8 +109,9 @@ struct SyncerTests {
         var doc = try #require(blyg.items[Fixtures.fragmentPlain]?.document)
         doc.updated = "2099-01-01T00:00:00Z"
         blyg.items[Fixtures.fragmentPlain]?.document = doc
-        blyg.items[Fixtures.fragmentPlain]?.versionSeenAt = Date(timeIntervalSince1970: 1_000)
-        #expect(Library(blygs: [blyg]).timeline().last?.document.id == Fixtures.fragmentPlain)
+        // Seen ten days before the feed's "now": inside its window, and earlier than every other post's date.
+        blyg.items[Fixtures.fragmentPlain]?.versionSeenAt = feedNow.addingTimeInterval(-10 * 86_400)
+        #expect(Library(blygs: [blyg]).timeline(now: feedNow).last?.document.id == Fixtures.fragmentPlain)
     }
 }
 

@@ -2,6 +2,18 @@ import Foundation
 import Testing
 @testable import Blyg
 
+/// "Now" for the main feed's window in tests: the fixture blyg's own, a day after its newest post. The fixture
+/// posts are dated November 2026, and measured from the real date they'd leave the 14-day window for good.
+let feedNow = Fixtures.now
+
+extension LibraryModel {
+    /// A model that keeps nothing on disk and measures the feed's window from `feedNow`.
+    convenience init(inMemoryWith fetcher: any Fetching, tokens: any TokenStore = MemoryTokenStore(),
+                     transport: any HTTPTransport = URLSessionTransport()) {
+        self.init(store: nil, fetcher: fetcher, tokens: tokens, transport: transport, buildTimeline: { $0.timeline(now: feedNow) })
+    }
+}
+
 /// Whether this is the main thread. A function of its own, because `Thread.isMainThread` can't be read in async code.
 func onMainThread() -> Bool { Thread.isMainThread }
 
@@ -222,7 +234,7 @@ final class TimelineCounter: @unchecked Sendable {
             return self.hold
         }
         hold?.wait()
-        let built = library.timeline()
+        let built = library.timeline(now: feedNow)
         lock.withLock { times.append((start, .now)) }
         return built
     }

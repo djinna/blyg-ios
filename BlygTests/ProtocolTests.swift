@@ -156,7 +156,7 @@ struct HTMLTextTests {
         let doc = try decode(ItemDocument.self, Fixtures.threadDocument)
         var blyg = SavedBlyg(origin: URL(string: "https://sample.example/")!, manifest: Manifest(blyg: "0.4"), addedAt: .now)
         blyg.items[doc.id] = SavedItem(id: doc.id, kind: doc.kind, version: doc.version, versionSeenAt: .now, document: doc)
-        let row = try #require(Library(blygs: [blyg]).timeline().first)
+        let row = try #require(Library(blygs: [blyg]).timeline(now: feedNow).first)
         #expect(row.excerpt.hasPrefix("Two notes, one thought.\nBoth are about pace.\nElsewhere someone"))
         #expect(row.quoteCount == 1)
     }
@@ -297,7 +297,7 @@ struct LinkedPostTests {
 
     @Test func savedPostsNeedNoFetchAndWithdrawnOnesSaySo() async throws {
         let fetcher = FakeFetcher.sample()
-        let model = LibraryModel(store: nil, fetcher: fetcher)
+        let model = LibraryModel(inMemoryWith: fetcher)
         try await model.add("sample.example")
         let thread = try #require(model.timeline.first { $0.document.id == Fixtures.thread })
         let saved = model.savedLinkedPosts(for: thread.document, origin: origin)

@@ -134,7 +134,7 @@ struct RefreshTests {
         #expect(f.timeline.builds == 1)
         #expect(f.store.saves == saves + 1)
         // Nothing was lost by waiting: both new posts are showing, and the file holds what the model does.
-        #expect(f.model.timeline == f.model.library.timeline())
+        #expect(f.model.timeline == f.model.library.timeline(now: feedNow))
         #expect(Set(f.model.timeline.map(\.document.id)).isSuperset(of: ["8a8a8a8a8a8a8a8a8a8a8a8a8a", "9b9b9b9b9b9b9b9b9b9b9b9b9b"]))
         #expect(f.model.blyg(Self.origin("fourth"))?.lastError == "Its blyg.json answered 500.")
         #expect(unsaved(f) == [])
@@ -159,7 +159,7 @@ struct RefreshTests {
         await refresh.value
         await f.model.saveFinished()
 
-        #expect(f.model.timeline == f.model.library.timeline())
+        #expect(f.model.timeline == f.model.library.timeline(now: feedNow))
         #expect(f.model.timeline.contains { $0.document.id == "9b9b9b9b9b9b9b9b9b9b9b9b9b" })
         #expect(f.store.saves == saves + 1)
         #expect((2...4).contains(f.timeline.builds)) // one while third was out, one at the end; never more than one per blyg
@@ -197,7 +197,7 @@ struct RefreshTests {
         #expect(f.timeline.builds == 3) // four blygs, three rebuilds
         #expect(f.store.saves == saves + 1)
         #expect(!f.timeline.builtOnMainThread)
-        #expect(f.model.timeline == f.model.library.timeline())
+        #expect(f.model.timeline == f.model.library.timeline(now: feedNow))
     }
 
     @Test func aPacedRebuildWaitsOutThePaceFromTheEndOfTheLastRebuild() async throws {
@@ -305,7 +305,7 @@ struct RefreshTests {
         f.model.remove(Self.origin("fourth")) // it has no posts
         #expect(!told.isSet)
         #expect(storage(f.model.timeline) == rows) // not copied either
-        #expect(f.model.timeline == f.model.library.timeline())
+        #expect(f.model.timeline == f.model.library.timeline(now: feedNow))
         await f.model.saveFinished()
     }
 
@@ -484,7 +484,7 @@ struct RefreshTests {
         await f.model.saveFinished()
 
         #expect(!f.model.timeline.contains { $0.origin == Self.origin("second") })
-        #expect(f.model.timeline == f.model.library.timeline())
+        #expect(f.model.timeline == f.model.library.timeline(now: feedNow))
     }
 
     @Test func aBlygUnfollowedDuringARebuildAndFollowedAgainDoesNotGetItsOldPostsBack() async throws {
@@ -506,7 +506,7 @@ struct RefreshTests {
         await f.model.saveFinished()
 
         #expect(!f.model.timeline.contains { $0.origin == Self.origin("second") })
-        #expect(f.model.timeline == f.model.library.timeline())
+        #expect(f.model.timeline == f.model.library.timeline(now: feedNow))
     }
 
     @Test func aRefreshRunningAlongsideDoesNotFinishAnothersWorkEarly() async throws {
@@ -686,7 +686,7 @@ struct RefreshTests {
 
         #expect(!build.gaveUp)
         #expect(f.timeline.builds == 2) // so it doesn't build the same rows again
-        #expect(f.model.timeline == f.model.library.timeline())
+        #expect(f.model.timeline == f.model.library.timeline(now: feedNow))
     }
 
     @Test func aRefreshThatBringsNothingNewLeavesTheRowsAlone() async throws {
@@ -702,7 +702,7 @@ struct RefreshTests {
         f.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "second")
         await f.model.refreshAll()
         #expect(storage(f.model.timeline) != rows)
-        #expect(f.model.timeline == f.model.library.timeline())
+        #expect(f.model.timeline == f.model.library.timeline(now: feedNow))
         await f.model.saveFinished()
     }
 
@@ -908,7 +908,7 @@ struct RefreshTests {
         await f.model.saveFinished()
 
         #expect(f.timeline.builds == 2)
-        #expect(f.model.timeline == f.model.library.timeline())
+        #expect(f.model.timeline == f.model.library.timeline(now: feedNow))
         #expect(f.model.timeline.contains { $0.document.id == "9b9b9b9b9b9b9b9b9b9b9b9b9b" })
     }
 }

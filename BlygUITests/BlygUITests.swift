@@ -25,6 +25,9 @@ final class BlygUITests: XCTestCase {
         let rows = app.buttons.matching(identifier: "timelineRow")
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10), "posts should appear after adding")
         XCTAssertEqual(rows.count, 3, "two fragments and a thread; the withdrawn and unknown-kind items stay hidden")
+        let end = app.descendants(matching: .any)["feedEnd"]
+        XCTAssertTrue(end.waitForExistence(timeout: 5), "the feed has an end")
+        XCTAssertTrue(end.label.contains("You're up to date") && end.label.contains("14 days"), "it says how far back it goes: \(end.label)")
 
         rows.firstMatch.tap()
         let page = app.webViews.firstMatch
@@ -56,6 +59,34 @@ final class BlygUITests: XCTestCase {
         app.buttons["postButton"].tap()
         XCTAssertTrue(compose.waitForExistence(timeout: 10), "the composer closes after posting")
         XCTAssertFalse(app.buttons["postButton"].exists)
+    }
+
+    /// The main feed is a 14-day window. When nothing is that recent it says so, posting is still at hand,
+    /// and the blyg's own page still lists every saved post. (`-feedNow` moves the app's "now" for the window.)
+    @MainActor
+    func testAQuietFeedSaysSoAndTheBlygsOwnPageStillHasEveryPost() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-useFixtures", "-inMemoryLibrary", "-seedBlyg", "sample.example", "-connectToken", "fixture-token",
+                               "-feedNow", "2026-12-25T00:00:00Z"]
+        app.launch()
+
+        let end = app.descendants(matching: .any)["feedEnd"]
+        XCTAssertTrue(end.waitForExistence(timeout: 10), "the feed shows, with its end line")
+        XCTAssertTrue(end.label.contains("No posts in the last 14 days"), "an empty window says so: \(end.label)")
+        XCTAssertEqual(app.buttons.matching(identifier: "timelineRow").count, 0)
+        XCTAssertTrue(app.buttons["composeButton"].exists, "posting doesn't depend on recent posts")
+
+        app.buttons["blygsButton"].tap()
+        let row = app.buttons["blygRow"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertTrue(row.label.contains("3 posts"), "the count is of every saved post: \(row.label)")
+        row.tap()
+        let all = app.buttons["allPostsRow"]
+        XCTAssertTrue(all.waitForExistence(timeout: 5))
+        all.tap()
+        let posts = app.buttons.matching(identifier: "blygPostRow")
+        XCTAssertTrue(posts.firstMatch.waitForExistence(timeout: 5), "the blyg's own page lists its posts")
+        XCTAssertEqual(posts.count, 3)
     }
 
     /// Jenna, build 3: one tap switched the look, then further taps did nothing.
