@@ -15,7 +15,7 @@ Blyglet is for [Blygger](https://blygger.org) blygs. It does a few things well, 
 - **Post** text, a link or a photo to your blyg in a couple of taps.
 - **Share** from any app, with "Post to blyg" in the Share sheet.
 - **Reply** to any blyg post, from whichever of your blygs you choose.
-- **Read** the blygs you follow, with the posts they quote and link to. Refreshing runs in the background, so a long list of blygs won't hold up the app.
+- **Read** the blygs you follow, with the posts they quote and link to. Refreshing runs in the background, and posts come in blyg by blyg.
 - **Catch up** on the last two weeks: the feed shows up to 200 posts, and older ones are under **All posts** on each blyg's page.
 - **Keep in step** with the blygs your Studio follows. One that can't be reached gets two more tries, on later launches.
 - **Make it yours** with color themes and twelve icons:
