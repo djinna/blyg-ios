@@ -63,23 +63,97 @@ nonisolated struct TimelineEntry: Sendable, Identifiable, Hashable {
     var id: String { origin.absoluteString + "#" + document.id }
 }
 
-nonisolated extension Library {
-    /// Newest first across all blygs. Each origin's own `updated` is self-asserted, so it is
-    /// capped at the moment this app first saw that version: a future-dated post can't sit on top forever.
-    func timeline() -> [TimelineEntry] {
-        blygs.flatMap { blyg in
-            blyg.items.values.compactMap { item -> TimelineEntry? in
-                guard item.isShowable, let document = item.document else { return nil }
-                let claimed = BlygDate.parse(document.updated) ?? item.versionSeenAt
-                // Only the author's own words and pictures: quoted posts are someone else's.
-                let own = HTMLText.withoutTransclusions(document.contentHTML)
-                return TimelineEntry(origin: blyg.origin, blygTitle: blyg.title, document: document,
-                                     sortDate: min(claimed, item.versionSeenAt),
-                                     excerpt: String(HTMLText.plainText(from: own.html).prefix(600)),
-                                     imageURL: HTMLText.firstImageURL(in: own.html, origin: blyg.origin),
-                                     quoteCount: own.quotes)
-            }
+nonisolated extension TimelineEntry {
+    /// The row for one post. This is the costly part of building a timeline: the post's HTML is read through
+    /// for its text and first picture. So it's done only for posts that will be shown.
+    init(blyg: SavedBlyg, document: ItemDocument, sortDate: Date) {
+        // Only the author's own words and pictures: quoted posts are someone else's.
+        let own = HTMLText.withoutTransclusions(document.contentHTML)
+        self.init(origin: blyg.origin, blygTitle: blyg.title, document: document, sortDate: sortDate,
+                  excerpt: String(HTMLText.plainText(from: own.html).prefix(600)),
+                  imageURL: HTMLText.firstImageURL(in: own.html, origin: blyg.origin),
+                  quoteCount: own.quotes)
+    }
+}
+
+/// How much of what's saved the main feed shows: a recent window, so the feed has an end and building it
+/// doesn't cost more every day. Older posts stay saved, and each blyg's own page lists all of its posts.
+nonisolated enum FeedWindow {
+    /// Posts from this many days back...
+    static let days = 14
+    /// ...and no more than this many, the newest. Whichever is fewer.
+    static let maxPosts = 200
+
+    /// The oldest moment the feed reaches back to, measured from `now`.
+    static func cutoff(from now: Date) -> Date { now.addingTimeInterval(-Double(days) * 86_400) }
+
+    /// The line the feed ends with: that this is the end, and how far back it goes.
+    /// `shown`: the posts in the feed; `oldest`: the date on the last of them.
+    static func endLine(shown: Int, oldest: Date?) -> String {
+        if shown == 0 { return "No posts in the last \(days) days." }
+        if shown >= maxPosts, let oldest {
+            return "You're up to date. These are the newest \(maxPosts) posts, back to \(oldest.formatted(.dateTime.month(.abbreviated).day()))."
+        }
+        return "You're up to date. That's everything from the last \(days) days."
+    }
+
+    /// Where the rest are, said under the end line.
+    static let olderLine = "Older posts are on each blyg's own page, in Your blygs."
+}
+
+nonisolated extension SavedItem {
+    /// Where a post sorts, and what the feed's window is measured by. Each origin's own `updated` is
+    /// self-asserted, so it is capped at the moment this app first saw that version: a future-dated post
+    /// can't sit on top forever.
+    func sortDate(of document: ItemDocument) -> Date {
+        min(BlygDate.parse(document.updated) ?? versionSeenAt, versionSeenAt)
+    }
+}
+
+nonisolated extension SavedBlyg {
+    /// How many posts of this blyg are saved: all of them, not only those recent enough for the main feed.
+    var postCount: Int { items.values.count(where: \.isShowable) }
+
+    /// Every saved post of this blyg, newest first, for its own page. Unlike the main feed this has no window,
+    /// so it builds a row for every post: call it off the main actor.
+    func posts() -> [TimelineEntry] {
+        items.values.compactMap { item -> TimelineEntry? in
+            guard item.isShowable, let document = item.document else { return nil }
+            return TimelineEntry(blyg: self, document: document, sortDate: item.sortDate(of: document))
         }
         .sorted { $0.sortDate != $1.sortDate ? $0.sortDate > $1.sortDate : $0.id < $1.id }
+    }
+}
+
+nonisolated extension Library {
+    /// Whether any post at all is saved, in the feed's window or not. Stops at the first one found.
+    var hasPosts: Bool { blygs.contains { $0.items.values.contains(where: \.isShowable) } }
+
+    /// The main feed: the posts of every blyg inside `FeedWindow`, newest first.
+    ///
+    /// Rows are built only for the posts that make it in. Every saved post is still looked at, but cheaply: one
+    /// first seen before the cut-off is passed over without even parsing its date (its sort date can't be later
+    /// than when it was seen), and the rest are sorted by date alone before any row is made.
+    /// `row` is `TimelineEntry.init(blyg:document:sortDate:)` in the app; tests pass their own to count the rows built.
+    func timeline(now: Date = .now,
+                  row: (SavedBlyg, ItemDocument, Date) -> TimelineEntry = TimelineEntry.init(blyg:document:sortDate:)) -> [TimelineEntry] {
+        struct Candidate {
+            var blyg: Int
+            var document: ItemDocument
+            var sortDate: Date
+        }
+        let cutoff = FeedWindow.cutoff(from: now)
+        var candidates: [Candidate] = []
+        for (index, blyg) in blygs.enumerated() {
+            for item in blyg.items.values where item.versionSeenAt >= cutoff {
+                guard item.isShowable, let document = item.document else { continue }
+                let sortDate = item.sortDate(of: document)
+                if sortDate >= cutoff { candidates.append(Candidate(blyg: index, document: document, sortDate: sortDate)) }
+            }
+        }
+        // The same order as the rows' own ids give (origin, then item id); the strings are only made for a tie.
+        func id(_ candidate: Candidate) -> String { blygs[candidate.blyg].origin.absoluteString + "#" + candidate.document.id }
+        candidates.sort { $0.sortDate != $1.sortDate ? $0.sortDate > $1.sortDate : id($0) < id($1) }
+        return candidates.prefix(FeedWindow.maxPosts).map { row(blygs[$0.blyg], $0.document, $0.sortDate) }
     }
 }

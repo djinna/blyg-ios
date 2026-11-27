@@ -11,7 +11,8 @@ import Observation
 @Observable
 final class LibraryModel {
     private(set) var library: Library
-    /// The posts of every blyg, newest first. Observed like the other properties, but kept in storage of its
+    /// The main feed: the recent posts of every blyg (`FeedWindow`), newest first. Each blyg's own page gets all
+    /// of that blyg's posts from `posts(of:)`. Observed like the other properties, but kept in storage of its
     /// own (`rows`, set with `show`): the setter Observation would write compares the old and new rows before
     /// telling views, a pass over every row on the main actor, and by then it's already known that they differ.
     var timeline: [TimelineEntry] {
@@ -403,13 +404,20 @@ final class LibraryModel {
         candidate.origin.absoluteString + "#" + candidate.id
     }
 
-    /// The saved post a link points to, so links to posts on blygs you follow open in the app.
+    /// The saved post a link points to, so links to posts on blygs you follow open in the app. Looked up in the
+    /// library, not the timeline: a post too old for the main feed is still saved, and still opens here.
     func entry(forPage url: URL) -> TimelineEntry? {
-        guard let (origin, id) = LinkedPosts.itemPage(url) else { return nil }
-        return timeline.first { entry in
-            entry.origin == origin && entry.document.id == id
-                && BlygURL.page(for: entry.document, origin: origin).map { LinkedPosts.samePage($0, url) } == true
-        }
+        guard let (origin, id) = LinkedPosts.itemPage(url), let blyg = blyg(origin), let item = blyg.items[id],
+              item.isShowable, let document = item.document,
+              BlygURL.page(for: document, origin: origin).map({ LinkedPosts.samePage($0, url) }) == true else { return nil }
+        return TimelineEntry(blyg: blyg, document: document, sortDate: item.sortDate(of: document))
+    }
+
+    /// Every saved post of one blyg, newest first, for that blyg's own page: the main feed shows only a recent
+    /// window (`FeedWindow`), and this is where the rest can be read. Built off the main actor, when asked for.
+    func posts(of origin: URL) async -> [TimelineEntry] {
+        guard let blyg = blyg(origin) else { return [] }
+        return await Self.offMain { blyg.posts() }
     }
 
     // MARK: Posting
