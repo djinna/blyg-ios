@@ -246,6 +246,22 @@ struct FeedWindowTests {
         #expect(model.blyg(Self.origin)?.items.count == 1) // still saved
     }
 
+    // From Codex's second review: the same for one blyg refreshed alone, as pull to refresh on its own page does.
+    @Test func oneBlygRefreshedAloneThatCantBeReachedStillMovesTheWindow() async throws {
+        let store = CountingStore()
+        defer { store.removeFiles() }
+        try store.store.save(Library(blygs: [Self.blyg([try Self.post("almostOut", updated: Self.daysAgo(13.5))])]))
+        let feed = Feed(now: Self.now)
+        let model = LibraryModel(store: store, fetcher: FakeFetcher(), buildTimeline: { feed.build($0) })
+        #expect(model.timeline.count == 1)
+
+        feed.now = Self.now.addingTimeInterval(86_400)
+        await model.refresh(Self.origin)
+        #expect(model.blyg(Self.origin)?.lastError != nil)
+        await until { model.timeline.isEmpty }
+        await model.saveFinished()
+    }
+
     // 7. The post counts on "Your blygs" are of every saved post, whatever the feed shows.
     @Test func aBlygsPostCountIsOfEverySavedPost() throws {
         let library = try Self.library(recent: 3, old: 40)

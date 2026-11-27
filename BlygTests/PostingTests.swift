@@ -531,7 +531,8 @@ struct ReplyTests {
         #expect(model.library.blygs.map(\.origin.absoluteString) == ["https://sample.example/", "https://second.example/"])
         // Keeping in step from now on. The two it could reach are remembered as dealt with; the one it couldn't
         // isn't, and waits to be tried again when the app next opens (see PendingFollowTests).
-        #expect(model.blyg(Fixtures.origin)?.studioFollows?.map(\.absoluteString) == ["https://second.example/", "https://sample.example/"])
+        // (The one followed already is remembered first, at once; the next refresh puts the list in the Studio's order.)
+        #expect(model.blyg(Fixtures.origin)?.studioFollows?.map(\.absoluteString) == ["https://sample.example/", "https://second.example/"])
         #expect(model.blyg(Fixtures.origin)?.pendingFollows == [PendingFollow(origin: URL(string: "https://gone.example/")!, attempts: 1)])
     }
 
