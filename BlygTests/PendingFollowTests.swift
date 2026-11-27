@@ -262,6 +262,10 @@ struct PendingFollowTests {
 
         await k.model.refreshAll() // not on pull to refresh
         #expect(tries(k) == 1)
+        // Nor by a launch refresh in the same launch (one still running when the switch went on): once per launch.
+        await k.model.refreshAtLaunch()
+        #expect(tries(k) == 1)
+        #expect(pending(k.model) == Self.waiting(1))
         let second = await reopened(k)
         await second.refreshAtLaunch()
         #expect(tries(k) == 2)
@@ -344,9 +348,196 @@ struct PendingFollowTests {
         #expect(launched.timeline == launched.library.timeline(now: feedNow))
         #expect(pending(launched) == nil)
         #expect(k.store.saves == saves + 1) // one save for the whole launch refresh, the retry's follow included
-        #expect((2...4).contains(timeline.builds)) // paced, not one per blyg (four blygs answered)
+        #expect((2...4).contains(timeline.builds)) // whether the retry waits for the pace is the next test's question
         let f = RefreshTests.Following(model: launched, fetcher: k.fetcher, store: k.store, timeline: timeline)
         #expect(RefreshTests().unsaved(f) == [])
+    }
+
+    // 8. The retried blyg's posts wait for the paced rebuild like anyone's: following it doesn't rebuild at once.
+    @Test func aRetriedBlygsPostsWaitForThePacedRebuild() async throws {
+        let k = try await withOnePending()
+        defer { k.store.removeFiles() }
+        try await k.model.add("third.example")
+        k.fetcher.answer(as: "gone")
+        k.fetcher.publish("8a8a8a8a8a8a8a8a8a8a8a8a8a", on: "gone")
+        let retry = k.fetcher.delay("https://gone.example/blyg.json")
+        let other = k.fetcher.delay("https://third.example/blyg.json") // keeps the refresh open after the retry is in
+        let timeline = TimelineCounter()
+        let launched = await reopened(k, pace: .seconds(60), timeline: timeline) // the last rebuild was just now, as it opened
+        timeline.reset()
+        let saves = k.store.saves
+
+        let launch = Task { await launched.refreshAtLaunch() }
+        await until { retry.wasReached && other.wasReached }
+        retry.release()
+        await until { launched.blyg(Self.gone)?.items.count == 1 } // followed, and its post fetched
+        try await Task.sleep(for: .milliseconds(100)) // a rebuild free to start at once would have by now
+        #expect(timeline.builds == 0)
+        #expect(!launched.timeline.contains { $0.origin == Self.gone })
+        #expect(k.store.saves == saves)
+        other.release()
+        await launch.value
+        await launched.saveFinished()
+        #expect(timeline.builds == 1) // the one at the end of the refresh
+        #expect(launched.timeline.contains { $0.document.id == "8a8a8a8a8a8a8a8a8a8a8a8a8a" })
+        #expect(k.store.saves == saves + 1)
+    }
+
+    // MARK: From Codex's review
+
+    /// A second Studio: "third" is followed, connected and keeping in step, following "second" like the first.
+    func withASecondStudio(_ k: Kept) async throws {
+        for (key, answer) in RefreshTests.studio("third", follows: ["second"]) { k.transport.set(key, answer) }
+        try await k.model.add("third.example")
+        try await k.model.connect(Self.origin("third"), token: "secret")
+        _ = try await k.model.importSubscriptions(from: Self.origin("third"))
+        await k.model.saveFinished()
+    }
+
+    @Test func twoStudiosListingOneDeadAddressMakeOneTryPerLaunchBetweenThem() async throws {
+        let k = try await keepingInStep()
+        defer { k.store.removeFiles() }
+        try await withASecondStudio(k)
+        func pendingOnBoth(_ model: LibraryModel) -> [[PendingFollow]?] {
+            [Fixtures.origin, Self.origin("third")].map { model.blyg($0)?.pendingFollows }
+        }
+        studio(k, follows: ["second", "gone"])
+        k.transport.set("GET https://third.example/api/subscriptions", (200, RefreshTests.subscriptions(["second", "gone"])))
+
+        await k.model.refreshAll() // both lists find it new in the same refresh
+        #expect(tries(k) == 1)
+        #expect(pendingOnBoth(k.model) == [Self.waiting(1), Self.waiting(1)])
+
+        let second = await reopened(k)
+        await second.refreshAtLaunch()
+        #expect(tries(k) == 2)
+        #expect(pendingOnBoth(second) == [Self.waiting(2), Self.waiting(2)])
+
+        let third = await reopened(k, after: second)
+        await third.refreshAtLaunch()
+        #expect(tries(k) == 3) // three in all, not three for each list
+        #expect(pendingOnBoth(third) == [nil, nil])
+        #expect(third.blyg(Fixtures.origin)?.studioFollows == [Self.origin("second"), Self.gone])
+        #expect(third.blyg(Self.origin("third"))?.studioFollows == [Self.origin("second"), Self.gone])
+
+        let fourth = await reopened(k, after: third)
+        await fourth.refreshAtLaunch()
+        await fourth.saveFinished()
+        #expect(tries(k) == 3)
+    }
+
+    @Test func aFirstImportCutShortLeavesTheRestForTheNextRefresh() async throws {
+        let k = try await keepingInStep()
+        k.fetcher.answer(as: "fourth")
+        k.model.stopKeepingInStep(Fixtures.origin)
+        studio(k, follows: ["second", "third", "fourth"])
+        let held = k.fetcher.delayNext("https://third.example/blyg.json")
+
+        let importing = Task { try await k.model.importSubscriptions(from: Fixtures.origin) }
+        await until { held.wasReached } // "third" is being followed; "fourth" hasn't been tried
+        k.model.enteredBackground()
+        await k.model.saveFinished()
+        // The app is closed here. The file mustn't say "third" or "fourth" has been dealt with: neither would ever be followed.
+        #expect(k.store.load().0.blygs.first?.studioFollows == [Self.origin("second")])
+
+        let launched = await reopened(k)
+        await launched.refreshAtLaunch()
+        await launched.saveFinished()
+        #expect(launched.blyg(Self.origin("third")) != nil)
+        #expect(launched.blyg(Self.origin("fourth")) != nil)
+        #expect(remembered(launched) == ["second", "third", "fourth"].map(Self.origin))
+
+        held.release() // let the first model's import end before its files go
+        _ = try await importing.value
+        await k.model.saveFinished()
+        k.store.removeFiles()
+    }
+
+    @Test(arguments: ["while the Studio's list is on its way", "while the list is being worked through"])
+    func disconnectingDuringTheFirstImportStopsIt(when: String) async throws {
+        let k = try await keepingInStep()
+        defer { k.store.removeFiles() }
+        k.fetcher.answer(as: "fourth")
+        k.model.stopKeepingInStep(Fixtures.origin)
+        studio(k, follows: ["second", "third", "fourth"])
+        let early = when.contains("on its way")
+        let list = early ? k.transport.delay("GET https://sample.example/api/subscriptions") : nil
+        let follow = early ? nil : k.fetcher.delay("https://third.example/blyg.json")
+
+        let importing = Task { try await k.model.importSubscriptions(from: Fixtures.origin) }
+        await until { list?.wasReached ?? follow?.wasReached ?? true }
+        k.model.disconnect(Fixtures.origin)
+        list?.release()
+        follow?.release()
+        _ = try await importing.value
+        await k.model.saveFinished()
+
+        #expect(remembered(k.model) == nil) // disconnected is disconnected: keeping in step didn't come back on
+        #expect(pending(k.model) == nil)
+        // Only the one already being followed when it happened; with the list still on its way, none.
+        #expect((k.model.blyg(Self.origin("third")) == nil) == early)
+        #expect(k.model.blyg(Self.origin("fourth")) == nil)
+    }
+
+    @Test func aBlygUnfollowedWhileItsRetryIsOutStaysUnfollowed() async throws {
+        let k = try await withOnePending()
+        defer { k.store.removeFiles() }
+        k.fetcher.answer(as: "gone")
+        let launched = await reopened(k)
+        let held = k.fetcher.delayNext("https://gone.example/blyg.json") // the retry's request; a later one goes through
+
+        let launch = Task { await launched.refreshAtLaunch() }
+        await until { held.wasReached }
+        try await launched.add("gone.example") // followed by hand while the retry is still asking,
+        #expect(pending(launched) == nil)
+        launched.remove(Self.gone)             // and unfollowed again.
+        held.release()                         // Now the retry's answer arrives: there is a blyg there.
+        await launch.value
+        await launched.saveFinished()
+
+        #expect(launched.blyg(Self.gone) == nil)
+        #expect(pending(launched) == nil)
+        #expect(remembered(launched) == [Self.origin("second"), Self.gone])
+    }
+
+    @Test func aRetryThatFailsAfterTheBlygWasFollowedByHandDoesNotPutItBackOnTheList() async throws {
+        let k = try await withOnePending()
+        defer { k.store.removeFiles() }
+        k.fetcher.answer(as: "gone")
+        let launched = await reopened(k)
+        let held = k.fetcher.delayNext("https://gone.example/blyg.json")
+
+        let launch = Task { await launched.refreshAtLaunch() }
+        await until { held.wasReached }
+        try await launched.add("gone.example") // followed by hand: dealt with
+        k.fetcher.fail("gone.example", with: .timedOut)
+        held.release()                         // the retry's own request times out
+        await launch.value
+        await launched.saveFinished()
+
+        #expect(launched.blyg(Self.gone) != nil)
+        #expect(pending(launched) == nil)
+        #expect(remembered(launched) == [Self.origin("second"), Self.gone])
+    }
+
+    @Test func aPendingBlygFollowedByHandThroughARedirectStopsWaitingToo() async throws {
+        let k = try await withOnePending()
+        defer { k.store.removeFiles() }
+        // The address the Studio lists now answers, as a blyg that lives at another address.
+        k.fetcher.answer(as: "moved")
+        k.fetcher.set("https://gone.example/blyg.json", .init(body: #"{"blyg":"0.4","title":"moved"}"#, finalURL: "https://moved.example/blyg.json"))
+
+        #expect(try await k.model.add("gone.example") == Self.origin("moved"))
+        #expect(pending(k.model) == nil)
+        #expect(remembered(k.model) == [Self.origin("second"), Self.gone])
+        k.model.remove(Self.origin("moved"))
+
+        let asked = tries(k)
+        let launched = await reopened(k)
+        await launched.refreshAtLaunch()
+        await launched.saveFinished()
+        #expect(tries(k) == asked)
+        #expect(launched.blyg(Self.origin("moved")) == nil)
     }
 }
 

@@ -99,6 +99,7 @@ final class FakeFetcher: Fetching, @unchecked Sendable {
     private var holds: [String: Hold] = [:]
     private var gates: [String: Gate] = [:]
     private var errors: [String: URLError.Code] = [:]
+    private var once: Set<String> = []
     private var onMain = false
 
     init(_ answers: [String: Answer] = [:]) { self.answers = answers }
@@ -125,6 +126,13 @@ final class FakeFetcher: Fetching, @unchecked Sendable {
         return gate
     }
 
+    /// Only the next request for `url` waits for the returned gate; later ones go straight through.
+    func delayNext(_ url: String) -> Gate {
+        let gate = Gate()
+        lock.withLock { gates[url] = gate; once.insert(url) }
+        return gate
+    }
+
     /// The fictional blyg from the app's DEBUG fixtures.
     static func sample() -> FakeFetcher {
         FakeFetcher(Fixtures.responses.mapValues { Answer(status: $0.status, body: $0.body) })
@@ -141,7 +149,9 @@ final class FakeFetcher: Fetching, @unchecked Sendable {
         let (hold, gate) = lock.withLock { () -> (Hold?, Gate?) in
             requested.append(url.absoluteString)
             if main { onMain = true }
-            return (holds[url.absoluteString], gates[url.absoluteString])
+            let gate = gates[url.absoluteString]
+            if once.remove(url.absoluteString) != nil { gates[url.absoluteString] = nil }
+            return (holds[url.absoluteString], gate)
         }
         hold?.wait()
         await gate?.wait()

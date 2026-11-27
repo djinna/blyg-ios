@@ -74,7 +74,8 @@ final class BlygUITests: XCTestCase {
         XCTAssertTrue(end.waitForExistence(timeout: 10), "the feed shows, with its end line")
         XCTAssertTrue(end.label.contains("No posts in the last 14 days"), "an empty window says so: \(end.label)")
         XCTAssertEqual(app.buttons.matching(identifier: "timelineRow").count, 0)
-        XCTAssertTrue(app.buttons["composeButton"].exists, "posting doesn't depend on recent posts")
+        // The blyg is connected a moment after its posts arrive, so wait for it.
+        XCTAssertTrue(app.buttons["composeButton"].waitForExistence(timeout: 10), "posting doesn't depend on recent posts")
 
         app.buttons["blygsButton"].tap()
         let row = app.buttons["blygRow"].firstMatch
@@ -87,6 +88,18 @@ final class BlygUITests: XCTestCase {
         let posts = app.buttons.matching(identifier: "blygPostRow")
         XCTAssertTrue(posts.firstMatch.waitForExistence(timeout: 5), "the blyg's own page lists its posts")
         XCTAssertEqual(posts.count, 3)
+    }
+
+    /// The refresh as the app opens is the one that tries again a blyg a Studio follows that couldn't be reached
+    /// before. Here the seeded blyg's Studio follows the second fixture blyg, which is waiting as if it had failed once.
+    @MainActor
+    func testOpeningTheAppTriesAgainABlygItsStudioFollows() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-useFixtures", "-inMemoryLibrary", "-seedBlyg", "sample.example", "-connectToken", "fixture-token",
+                               "-seedPendingFollow", "https://elsewhere.example/blyg/"]
+        app.launch()
+        let following = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Following 2 blygs")).firstMatch
+        XCTAssertTrue(following.waitForExistence(timeout: 15), "the launch refresh should have followed the waiting blyg")
     }
 
     /// Jenna, build 3: one tap switched the look, then further taps did nothing.

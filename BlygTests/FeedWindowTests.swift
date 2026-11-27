@@ -33,6 +33,37 @@ struct FeedWindowTests {
         return Library(blygs: [blyg(new + aged)])
     }
 
+    static let other = URL(string: "https://other.example/")!
+
+    /// Two blygs, each posting once a minute: the first one's newest post a minute ago, the second's `bStartsMinutesAgo`.
+    static func twoBlygs(a: Int, b: Int, bStartsMinutesAgo: Double) throws -> Library {
+        let first = try (0..<a).map { try post("a\($0)", updated: now.addingTimeInterval(-60 - Double($0) * 60)) }
+        let second = try (0..<b).map { try post("b\($0)", updated: now.addingTimeInterval(-bStartsMinutesAgo * 60 - Double($0) * 60)) }
+        return Library(blygs: [blyg(first), blyg(second, origin: other)])
+    }
+
+    /// A clock a test can set, and a build it can hold, for a model's feed.
+    final class Feed: @unchecked Sendable {
+        private let lock = NSLock()
+        private var date: Date
+        private var hold: Hold?
+        init(now: Date) { date = now }
+        var now: Date {
+            get { lock.withLock { date } }
+            set { lock.withLock { date = newValue } }
+        }
+        func holdNextBuild() -> Hold {
+            let hold = Hold()
+            lock.withLock { self.hold = hold }
+            return hold
+        }
+        func build(_ library: Library) -> [TimelineEntry] {
+            let (now, hold) = lock.withLock { (date, self.hold) }
+            hold?.wait()
+            return library.timeline(now: now)
+        }
+    }
+
     /// A model opened on a saved file holding `library`, with the feed's window measured from `now`.
     func opened(on library: Library, fetcher: FakeFetcher = FakeFetcher()) throws -> (LibraryModel, CountingStore) {
         let store = CountingStore()
@@ -55,6 +86,13 @@ struct FeedWindowTests {
         // Fewer by count: 250 posts in the last day, and the newest 200 are the ones shown.
         let byCount = try Self.library(recent: 250, old: 0).timeline(now: Self.now)
         #expect(byCount.map(\.document.id) == (0..<200).map { "new\($0)" })
+
+        // 200 in all, not 200 for each blyg: two blygs with 150 each, posting turn about.
+        let two = try Self.twoBlygs(a: 150, b: 150, bStartsMinutesAgo: 0.5).timeline(now: Self.now)
+        #expect(two.count == 200)
+        #expect(two.count { $0.origin == Self.origin } == 100)
+        #expect(two.count { $0.origin == Self.other } == 100)
+        #expect(two.last?.document.id == "a99") // the 200th newest of the 300
     }
 
     // 2. The cut-off is measured by the same date the feed is sorted by.
@@ -143,6 +181,69 @@ struct FeedWindowTests {
         let saved = try #require(store.load().0.blygs.first)
         #expect(saved.items.count == 43)
         #expect(saved.items["old39"]?.document?.contentHTML.contains("Post old39.") == true)
+    }
+
+    // From Codex's review: unfollowing the blyg that filled the feed makes room, and the others' posts move up into it.
+    @Test func unfollowingABlygThatFilledTheFeedBringsInTheOthersPosts() async throws {
+        // The first blyg's 200 posts are all newer than the second's 20, which are a day old.
+        let (model, store) = try opened(on: try Self.twoBlygs(a: 200, b: 20, bStartsMinutesAgo: 24 * 60))
+        defer { store.removeFiles() }
+        #expect(model.timeline.count == 200)
+        #expect(model.timeline.allSatisfy { $0.origin == Self.origin })
+
+        model.remove(Self.origin)
+        #expect(model.timeline.isEmpty) // its rows go at once...
+        await until { model.timeline.count == 20 } // ...and the posts that were below them come in
+        #expect(model.timeline.allSatisfy { $0.origin == Self.other })
+        await model.saveFinished()
+    }
+
+    // The same, when the unfollow lands while a rebuild that still has the blyg is under way.
+    @Test func aBlygUnfollowedDuringARebuildItWouldHaveFilledLeavesRoomForTheOthers() async throws {
+        // Ten days ago the first blyg posted 60 times; two days before that the second posted 20; an hour ago the first posted 150.
+        let recent = try (0..<150).map { try Self.post("a\($0)", updated: Self.now.addingTimeInterval(-3_600 - Double($0) * 60)) }
+        let older = try (0..<60).map { try Self.post("a-old\($0)", updated: Self.daysAgo(10).addingTimeInterval(-Double($0) * 60)) }
+        let quiet = try (0..<20).map { try Self.post("b\($0)", updated: Self.daysAgo(12).addingTimeInterval(-Double($0) * 60)) }
+        let fetcher = FakeFetcher([
+            "https://other.example/blyg.json": .init(body: #"{"blyg":"0.4","title":"Other"}"#),
+            "https://other.example/items/index.json": .init(body: #"{"items":[]}"#),
+        ])
+        let store = CountingStore()
+        defer { store.removeFiles() }
+        try store.store.save(Library(blygs: [Self.blyg(recent + older), Self.blyg(quiet, origin: Self.other)]))
+        let feed = Feed(now: Self.now)
+        feed.now = Self.now.addingTimeInterval(5 * 86_400) // five days on, only the 150 are inside the window: not a full feed
+        let model = LibraryModel(store: store, fetcher: fetcher, buildTimeline: { feed.build($0) })
+        #expect(model.timeline.count == 150)
+
+        feed.now = Self.now // back to where 230 posts are inside it: the next build is full, all of it the first blyg's
+        let hold = feed.holdNextBuild()
+        let refresh = Task { await model.refresh(Self.other) }
+        await until { hold.wasReached }
+        model.remove(Self.origin)
+        hold.release()
+        await refresh.value
+        await until { model.timeline.count == 20 }
+        #expect(!hold.gaveUp)
+        #expect(model.timeline.allSatisfy { $0.origin == Self.other })
+        await model.saveFinished()
+    }
+
+    // From Codex's review: a refresh that reaches no blyg brings no posts, but still moves the window.
+    @Test func aRefreshThatReachesNoOneStillMovesTheWindow() async throws {
+        let store = CountingStore()
+        defer { store.removeFiles() }
+        try store.store.save(Library(blygs: [Self.blyg([try Self.post("almostOut", updated: Self.daysAgo(13.5))])]))
+        let feed = Feed(now: Self.now)
+        let model = LibraryModel(store: store, fetcher: FakeFetcher(), buildTimeline: { feed.build($0) }) // nothing answers
+        #expect(model.timeline.count == 1)
+
+        feed.now = Self.now.addingTimeInterval(86_400) // a day passes with the app open; the post is now 14.5 days old
+        await model.refreshAll()
+        await model.saveFinished()
+        #expect(model.blyg(Self.origin)?.lastError != nil)
+        #expect(model.timeline.isEmpty)
+        #expect(model.blyg(Self.origin)?.items.count == 1) // still saved
     }
 
     // 7. The post counts on "Your blygs" are of every saved post, whatever the feed shows.

@@ -8,6 +8,14 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
     private var answers: [String: (Int, String)]
     private(set) var sent: [URLRequest] = []
     private var onMain: [String] = []
+    private var gates: [String: Gate] = [:]
+
+    /// Requests for `key` ("METHOD URL") wait, without blocking a thread, until the returned gate is released.
+    func delay(_ key: String) -> Gate {
+        let gate = Gate()
+        lock.withLock { gates[key] = gate }
+        return gate
+    }
 
     init(_ answers: [String: (Int, String)]) { self.answers = answers }
 
@@ -21,11 +29,13 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let key = "\(request.httpMethod ?? "GET") \(request.url!.absoluteString)"
         let main = onMainThread()
-        let answer = lock.withLock { () -> (Int, String)? in
+        let gate = lock.withLock { () -> Gate? in
             sent.append(request)
             if main { onMain.append(key) }
-            return answers[key]
+            return gates[key]
         }
+        await gate?.wait()
+        let answer = lock.withLock { answers[key] } // as it is once the wait is over
         let (status, body) = answer ?? (404, #"{"code":"not-found","message":"not found"}"#)
         return (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
     }
