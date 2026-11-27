@@ -517,8 +517,12 @@ struct ReplyTests {
         #expect(result.alreadyFollowing == 1)
         #expect(result.skippedFeeds == 1)
         #expect(result.failed == ["gone.example"])
+        #expect(result.retrying == 1)
         #expect(model.library.blygs.map(\.origin.absoluteString) == ["https://sample.example/", "https://second.example/"])
-        #expect(model.blyg(Fixtures.origin)?.studioFollows?.count == 3) // keeping in step from now on
+        // Keeping in step from now on. The two it could reach are remembered as dealt with; the one it couldn't
+        // isn't, and waits to be tried again when the app next opens (see PendingFollowTests).
+        #expect(model.blyg(Fixtures.origin)?.studioFollows?.map(\.absoluteString) == ["https://second.example/", "https://sample.example/"])
+        #expect(model.blyg(Fixtures.origin)?.pendingFollows == [PendingFollow(origin: URL(string: "https://gone.example/")!, attempts: 1)])
     }
 
     @Test func keepingInStepFollowsOnlyBlygsNewToTheStudio() async throws {

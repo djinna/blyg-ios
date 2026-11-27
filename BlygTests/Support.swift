@@ -98,9 +98,15 @@ final class FakeFetcher: Fetching, @unchecked Sendable {
     private(set) var requested: [String] = []
     private var holds: [String: Hold] = [:]
     private var gates: [String: Gate] = [:]
+    private var errors: [String: URLError.Code] = [:]
     private var onMain = false
 
     init(_ answers: [String: Answer] = [:]) { self.answers = answers }
+
+    /// Every request to `host` fails with this error, as a dead address or a timeout would; nil ends that.
+    func fail(_ host: String, with code: URLError.Code?) {
+        lock.withLock { errors[host] = code }
+    }
 
     /// True if any request ran on the main thread: the caller's fetching and decoding were on the main actor.
     var askedOnMainThread: Bool { lock.withLock { onMain } }
@@ -139,7 +145,8 @@ final class FakeFetcher: Fetching, @unchecked Sendable {
         }
         hold?.wait()
         await gate?.wait()
-        let answer = lock.withLock { answers[url.absoluteString] } // as it is once the wait is over
+        let (answer, error) = lock.withLock { (answers[url.absoluteString], errors[url.host() ?? ""]) } // as they are once the wait is over
+        if let error { throw URLError(error) }
         guard let answer else { return FetchResult(data: Data("Not Found".utf8), finalURL: url, status: 404, contentType: "text/plain") }
         let final = answer.finalURL.flatMap(URL.init(string:)) ?? url
         return FetchResult(data: Data(answer.body.utf8), finalURL: final, status: answer.status, contentType: nil)

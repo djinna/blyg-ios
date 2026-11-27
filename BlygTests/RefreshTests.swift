@@ -96,6 +96,7 @@ struct RefreshTests {
             if !near(a.lastRefresh, b.lastRefresh) { differences.append("\(name): last refresh") }
             if a.postingAPI != b.postingAPI { differences.append("\(name): posting API") }
             if a.studioFollows != b.studioFollows { differences.append("\(name): Studio follows") }
+            if a.pendingFollows != b.pendingFollows { differences.append("\(name): pending follows") }
             if Set(a.items.keys) != Set(b.items.keys) { differences.append("\(name): items \(a.items.keys.sorted()) / \(b.items.keys.sorted())") }
             for (id, item) in b.items {
                 guard let other = a.items[id] else { continue }
