@@ -34,7 +34,7 @@
 
   var root = document.documentElement;
   var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-  var state = { font: 'blyglet', palette: 'blue', mode: 'system' };
+  var state = { font: 'jetbrains', palette: 'blue', mode: 'system' }; // the default look; the layout's CSS matches it
   try {
     var saved = JSON.parse(localStorage.getItem(STORAGE));
     if (saved) {

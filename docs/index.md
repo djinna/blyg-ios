@@ -2,12 +2,31 @@
 title: Blyglet
 ---
 
-<div class="hero">
+<div class="hero hero-stickers">
+<div class="hero-text">
   <span class="app-icon" role="img" aria-label="The Blyglet icon: a curl, like a piglet's tail"></span>
   <h1>Blyglet</h1>
   <p class="tagline">A little iPhone app for posting to your blyg.</p>
   <a class="button" href="https://testflight.apple.com/join/HER7EwkZ">Join the beta on TestFlight</a>
   <p class="apparatus">Free while in testing · iPhone, iOS 18 or later</p>
+</div>
+<div class="stickers">
+<ul class="sticker-sheet" aria-label="The app icons. Each one sets this page's colors.">
+  <li style="--x:28%;--y:76px;--r:-4deg;--z:20;--ny:6px;--nr:-8deg"><button type="button" class="sticker" data-icon="pencil-blue" data-palette="blue" title="Pencil blue"><img src="icons/all/pencil-blue.png" srcset="icons/all/pencil-blue@2x.png 2x" width="76" height="76" alt="Pencil blue"></button></li>
+  <li style="--x:2%;--y:6px;--r:-12deg;--z:3;--ny:0px;--nr:6deg"><button type="button" class="sticker" data-icon="piglet-pink" data-palette="pink" title="Piglet pink"><img src="icons/all/piglet-pink.png" srcset="icons/all/piglet-pink@2x.png 2x" width="76" height="76" alt="Piglet pink"></button></li>
+  <li style="--x:25%;--y:0px;--r:8deg;--z:2;--ny:10px;--nr:-4deg"><button type="button" class="sticker" data-icon="coral" data-palette="pink" data-nearest="true" title="Coral"><img src="icons/all/coral.png" srcset="icons/all/coral@2x.png 2x" width="76" height="76" alt="Coral"></button></li>
+  <li style="--x:50%;--y:10px;--r:-7deg;--z:4;--ny:2px;--nr:10deg"><button type="button" class="sticker" data-icon="sky" data-palette="blue" data-nearest="true" title="Sky"><img src="icons/all/sky.png" srcset="icons/all/sky@2x.png 2x" width="76" height="76" alt="Sky"></button></li>
+  <li style="--x:54%;--y:84px;--r:11deg;--z:7;--ny:8px;--nr:-11deg"><button type="button" class="sticker" data-icon="pink-on-white" data-palette="pink" data-nearest="true" title="Pink on white"><img src="icons/all/pink-on-white.png" srcset="icons/all/pink-on-white@2x.png 2x" width="76" height="76" alt="Pink on white"></button></li>
+  <li style="--x:0%;--y:86px;--r:6deg;--z:6;--ny:0px;--nr:5deg"><button type="button" class="sticker" data-icon="ink" data-palette="blue" data-mode="dark" title="Ink"><img src="icons/all/ink.png" srcset="icons/all/ink@2x.png 2x" width="76" height="76" alt="Ink"></button></li>
+  <li style="--x:6%;--y:160px;--r:-9deg;--z:9;--ny:12px;--nr:-6deg"><button type="button" class="sticker" data-icon="warm-pink" data-palette="pink" data-nearest="true" title="Warm pink"><img src="icons/all/warm-pink.png" srcset="icons/all/warm-pink@2x.png 2x" width="76" height="76" alt="Warm pink"></button></li>
+  <li style="--x:30%;--y:152px;--r:13deg;--z:10;--ny:4px;--nr:9deg"><button type="button" class="sticker" data-icon="blue-pink-curl" data-palette="blue" data-nearest="true" title="Blue, pink curl"><img src="icons/all/blue-pink-curl.png" srcset="icons/all/blue-pink-curl@2x.png 2x" width="76" height="76" alt="Blue, pink curl"></button></li>
+  <li style="--x:52%;--y:164px;--r:-5deg;--z:11;--ny:6px;--nr:-3deg"><button type="button" class="sticker" data-icon="paper" data-palette="blue" data-mode="light" title="Paper"><img src="icons/all/paper.png" srcset="icons/all/paper@2x.png 2x" width="76" height="76" alt="Paper"></button></li>
+  <li style="--x:72%;--y:2px;--r:10deg;--z:5;--ny:0px;--nr:12deg"><button type="button" class="sticker" data-icon="moss" data-palette="moss" title="Moss"><img src="icons/all/moss.png" srcset="icons/all/moss@2x.png 2x" width="76" height="76" alt="Moss"></button></li>
+  <li style="--x:74%;--y:156px;--r:7deg;--z:12;--ny:10px;--nr:-9deg"><button type="button" class="sticker" data-icon="blue-coral-curl" data-palette="blue" data-nearest="true" title="Blue, coral curl"><img src="icons/all/blue-coral-curl.png" srcset="icons/all/blue-coral-curl@2x.png 2x" width="76" height="76" alt="Blue, coral curl"></button></li>
+  <li style="--x:75%;--y:80px;--r:-10deg;--z:8;--ny:2px;--nr:4deg"><button type="button" class="sticker" data-icon="butter" data-palette="butter" title="Butter"><img src="icons/all/butter.png" srcset="icons/all/butter@2x.png 2x" width="76" height="76" alt="Butter"></button></li>
+</ul>
+<p class="apparatus sticker-status" aria-live="polite"></p>
+</div>
 </div>
 
 Blyglet is for [Blygger](https://blygger.org) blygs. It does a few things well, so you can post from anywhere and get back to your day:
@@ -18,22 +37,7 @@ Blyglet is for [Blygger](https://blygger.org) blygs. It does a few things well, 
 - **Read** the blygs you follow, with the posts they quote and link to. Refreshing runs in the background, and posts come in blyg by blyg.
 - **Catch up** on the last two weeks: the feed shows up to 200 posts, and older ones are under **All posts** on each blyg's page.
 - **Keep in step** with the blygs your Studio follows. One that can't be reached gets two more tries, on later launches.
-- **Make it yours** with color themes and icons.
-
-<ul class="icon-grid" aria-label="The app icons">
-  <li><img src="icons/all/pencil-blue.png" srcset="icons/all/pencil-blue@2x.png 2x" width="100" height="100" alt="Pencil blue" title="Pencil blue" loading="lazy"></li>
-  <li><img src="icons/all/piglet-pink.png" srcset="icons/all/piglet-pink@2x.png 2x" width="100" height="100" alt="Piglet pink" title="Piglet pink" loading="lazy"></li>
-  <li><img src="icons/all/coral.png" srcset="icons/all/coral@2x.png 2x" width="100" height="100" alt="Coral" title="Coral" loading="lazy"></li>
-  <li><img src="icons/all/sky.png" srcset="icons/all/sky@2x.png 2x" width="100" height="100" alt="Sky" title="Sky" loading="lazy"></li>
-  <li><img src="icons/all/pink-on-white.png" srcset="icons/all/pink-on-white@2x.png 2x" width="100" height="100" alt="Pink on white" title="Pink on white" loading="lazy"></li>
-  <li><img src="icons/all/ink.png" srcset="icons/all/ink@2x.png 2x" width="100" height="100" alt="Ink" title="Ink" loading="lazy"></li>
-  <li><img src="icons/all/warm-pink.png" srcset="icons/all/warm-pink@2x.png 2x" width="100" height="100" alt="Warm pink" title="Warm pink" loading="lazy"></li>
-  <li><img src="icons/all/blue-pink-curl.png" srcset="icons/all/blue-pink-curl@2x.png 2x" width="100" height="100" alt="Blue, pink curl" title="Blue, pink curl" loading="lazy"></li>
-  <li><img src="icons/all/paper.png" srcset="icons/all/paper@2x.png 2x" width="100" height="100" alt="Paper" title="Paper" loading="lazy"></li>
-  <li><img src="icons/all/moss.png" srcset="icons/all/moss@2x.png 2x" width="100" height="100" alt="Moss" title="Moss" loading="lazy"></li>
-  <li><img src="icons/all/blue-coral-curl.png" srcset="icons/all/blue-coral-curl@2x.png 2x" width="100" height="100" alt="Blue, coral curl" title="Blue, coral curl" loading="lazy"></li>
-  <li><img src="icons/all/butter.png" srcset="icons/all/butter@2x.png 2x" width="100" height="100" alt="Butter" title="Butter" loading="lazy"></li>
-</ul>
+- **Make it yours** with color themes and icons. Try them: tap a sticker at the top.
 
 <p class="apparatus icon-note">Pencil blue is the default, and the only one with dark and tinted versions.</p>
 

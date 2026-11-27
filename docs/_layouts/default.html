@@ -18,12 +18,17 @@
 <link rel="icon" href="{{ '/icon.png' | relative_url }}">
 <link rel="apple-touch-icon" href="{{ '/icon.png' | relative_url }}">
 <script src="{{ '/assets/switcher.js' | relative_url }}"></script>
+<script src="{{ '/assets/stickers.js' | relative_url }}" defer></script>
+<link rel="preload" href="{{ '/assets/fonts/jetbrains-mono-400.woff2' | relative_url }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ '/assets/fonts.css' | relative_url }}">
 <style>
 /* Blyglet's look: a serif for reading, a small sans for the apparatus, the theme's pencil for marks.
    Colors are the app's own themes (Blyg/Theme/Theme.swift); the switcher (assets/switcher.js) sets
    data-palette, data-font, and .light or .dark on <html>. */
-:root { color-scheme: light; --prose: "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, serif; --prose-size: 18px; }
+:root { color-scheme: light; --prose: "JetBrains Mono", ui-monospace, Menlo, monospace; --prose-size: 18px; }
+/* JetBrains Mono is the default type: the switcher sets data-font="jetbrains" (16px, below); with JavaScript off
+   there is no data-font, and the same face and size apply. The other faces keep the 18px above. */
+:root:not([data-font]) { --prose-size: 16px; }
 :root[data-palette="blue"], :root:not([data-palette]) { --page: #fafbfb; --ink: #1b2426; --soft: #5c686b; --rule: #dde3e5; --sunk: #eef1f3; --pencil: #23608c; --icon: url({{ '/icons/pencil-blue.png' | relative_url }}); --on-pencil: #ffffff; }
 :root[data-palette="pink"] { --page: #fdf7f8; --ink: #2a1e21; --soft: #6b5a5f; --rule: #efdce0; --sunk: #f8eaed; --pencil: #a3324f; --icon: url({{ '/icons/piglet-pink.png' | relative_url }}); --on-pencil: #ffffff; }
 :root[data-palette="moss"] { --page: #f7faf5; --ink: #1d261c; --soft: #586555; --rule: #dce5d8; --sunk: #edf3ea; --pencil: #3a6b3f; --icon: url({{ '/icons/moss.png' | relative_url }}); --on-pencil: #ffffff; }
@@ -74,13 +79,39 @@ code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: 
 }
 .button:hover { filter: brightness(1.08); }
 .hero .apparatus { margin-top: 0.75rem; }
-/* The app icons: six to a row, four on a phone. Each has a hairline ring, so Paper and Pink on white
-   show on a light page and Ink on a dark one. The grid and its note hang at 40px, the browser's list indent,
-   so they line up with the bullets' text above. */
+/* The note under the feature list hangs at 40px, the browser's list indent, in line with the bullets' text. */
 .icon-note { margin-left: 40px; }
-.icon-grid { list-style: none; margin: 1.25rem 0 0.5rem 40px; padding: 0; max-width: 28rem; display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
-.icon-grid img { display: block; width: 100%; height: auto; border-radius: 22.5%; box-shadow: 0 0 0 1px var(--rule), 0 2px 8px rgb(0 0 0 / 0.08); }
-@media (max-width: 480px) { .icon-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; } }
+/* The app icons as stickers beside the hero, or a band under it on phones. Each is a button that sets the
+   page's color theme, or the nearest one (assets/stickers.js); its place and tilt are in its style attribute.
+   Without JavaScript they're just stickers. The pressed one lifts and straightens. */
+.hero-stickers { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; column-gap: 1.5rem; align-items: center; }
+@media (min-width: 1000px) { .hero-stickers { grid-template-columns: minmax(0, 1fr) 17rem; margin-right: -9rem; } }
+.stickers { min-width: 0; }
+.sticker-sheet { list-style: none; margin: 0; padding: 0; position: relative; height: 15rem; }
+.sticker-sheet li { position: absolute; left: var(--x); top: var(--y); z-index: var(--z); width: 76px; }
+.sticker-sheet li:hover, .sticker-sheet li:focus-within { z-index: 30; }
+.sticker { display: block; width: 100%; padding: 0; border: 0; background: none; border-radius: 22.5%; cursor: pointer; transform: rotate(var(--r)); transition: transform 0.2s, filter 0.2s; }
+.sticker img { display: block; width: 100%; height: auto; border-radius: 22.5%; box-shadow: 0 0 0 3px #fff, 0 6px 14px rgb(0 0 0 / 0.2); transition: box-shadow 0.2s; }
+.sticker:hover { transform: rotate(var(--r)) translateY(-3px); }
+.sticker:focus-visible { outline: 2px solid var(--pencil); outline-offset: 5px; }
+.sticker-status { min-height: 2.9em; margin: 0.75rem 0 0; font-size: 13px; }
+/* Phones: one overlapping row that scrolls sideways, eight stickers to the screen; the edges fade. */
+@media (max-width: 640px) {
+  .hero-stickers { grid-template-columns: minmax(0, 1fr); }
+  .sticker-sheet { display: flex; height: auto; margin: 1.25rem -1rem 0; padding: 18px 12px 16px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 36px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 36px), transparent); }
+  .sticker-sheet::-webkit-scrollbar { display: none; }
+  .sticker-sheet li { position: relative; left: auto; top: var(--ny); z-index: auto; flex: 0 0 56px; width: 56px; }
+  .sticker-sheet li + li { margin-left: -12px; }
+  .sticker { transform: rotate(var(--nr)); }
+  .sticker:hover { transform: rotate(var(--nr)) translateY(-3px); }
+  .sticker-status { margin-top: 0.25rem; }
+}
+.sticker-sheet li:has(> [aria-pressed="true"]) { z-index: 40; }
+.sticker[aria-pressed="true"] { transform: translateY(-8px) rotate(0deg); }
+.sticker[aria-pressed="true"] img { box-shadow: 0 0 0 3px #fff, 0 14px 24px rgb(0 0 0 / 0.28); }
+@media (prefers-reduced-motion: reduce) { .sticker, .sticker img { transition: none; } }
 footer { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; border-top: 1px solid var(--rule); }
 footer p { margin: 0.3rem 0; }
 
