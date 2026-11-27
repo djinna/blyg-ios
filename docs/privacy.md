@@ -4,7 +4,7 @@ title: Blyglet privacy policy
 
 # Blyglet privacy policy
 
-*Last updated 2026-11-23: it now says when the app reads your own Studio's list of follows (a feature since 2026-11-22's build 6, and kept in step from build 9). The app was renamed from Blyg to Blyglet on 2026-11-22.*
+*Last updated 2026-11-27: the blygs the app fetches from now include those added by keeping in step with your Studio, and its later tries at any it couldn't reach (since build 11). The app was renamed from Blyg to Blyglet on 2026-11-22.*
 
 **Blyglet collects nothing about you.** There are no accounts, analytics, advertising or tracking, and no server run by the developer. The developer receives no data from the app.
 
@@ -15,7 +15,7 @@ title: Blyglet privacy policy
 
 ## What the app sends, and to whom
 
-- **To the blygs you add:** requests for their public files (`blyg.json`, their archive index and their posts). Like any website, a blyg's server can see your IP address when you fetch from it.
+- **To the blygs you follow,** whether you added them or keeping in step with your Studio did (below): requests for their public files (`blyg.json`, their archive index and their posts). A blyg from your Studio's list that can't be reached is tried again on up to two later launches. Like any website, a blyg's server can see your IP address when you fetch from it.
 - **To blygs that a post links to:** when you open a post that links to a post on another blyg, the app fetches two public files from that blyg (its `blyg.json` and the linked post), to show the linked post's opening words under it. It does this for up to three links per post, and only for links that point to blyg posts. That blyg's server can see your IP address, as when you tap a link.
 - **To other websites that posts point to:** posts can include images or media hosted elsewhere, and the app loads them when you read the post, like a web browser would. Links you tap open in Safari, except links to posts on blygs you follow, which open in the app.
 - **To your own blyg when you post:** your text, link and photo, sent to your blyg's Studio with your token. Photos are re-encoded before upload, which removes their location and camera details.
