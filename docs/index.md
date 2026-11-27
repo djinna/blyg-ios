@@ -18,7 +18,7 @@ Blyglet is for [Blygger](https://blygger.org) blygs. It does a few things well, 
 - **Read** the blygs you follow, with the posts they quote and link to. Refreshing runs in the background, and posts come in blyg by blyg.
 - **Catch up** on the last two weeks: the feed shows up to 200 posts, and older ones are under **All posts** on each blyg's page.
 - **Keep in step** with the blygs your Studio follows. One that can't be reached gets two more tries, on later launches.
-- **Make it yours** with color themes and icons
+- **Make it yours** with color themes and icons.
 
 <ul class="icon-grid" aria-label="The twelve app icons">
   <li><img src="icons/all/pencil-blue.png" srcset="icons/all/pencil-blue@2x.png 2x" width="100" height="100" alt="Pencil blue" title="Pencil blue" loading="lazy"></li>
