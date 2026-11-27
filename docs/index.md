@@ -18,21 +18,21 @@ Blyglet is for [Blygger](https://blygger.org) blygs. It does a few things well, 
 - **Read** the blygs you follow, with the posts they quote and link to. Refreshing runs in the background, and posts come in blyg by blyg.
 - **Catch up** on the last two weeks: the feed shows up to 200 posts, and older ones are under **All posts** on each blyg's page.
 - **Keep in step** with the blygs your Studio follows. One that can't be reached gets two more tries, on later launches.
-- **Make it yours** with color themes and twelve icons:
+- **Make it yours** with color themes and icons
 
 <ul class="icon-grid" aria-label="The twelve app icons">
   <li><img src="icons/all/pencil-blue.png" srcset="icons/all/pencil-blue@2x.png 2x" width="120" height="120" alt="Pencil blue" title="Pencil blue" loading="lazy"></li>
   <li><img src="icons/all/paper.png" srcset="icons/all/paper@2x.png 2x" width="120" height="120" alt="Paper" title="Paper" loading="lazy"></li>
-  <li><img src="icons/all/ink.png" srcset="icons/all/ink@2x.png 2x" width="120" height="120" alt="Ink" title="Ink" loading="lazy"></li>
   <li><img src="icons/all/sky.png" srcset="icons/all/sky@2x.png 2x" width="120" height="120" alt="Sky" title="Sky" loading="lazy"></li>
   <li><img src="icons/all/piglet-pink.png" srcset="icons/all/piglet-pink@2x.png 2x" width="120" height="120" alt="Piglet pink" title="Piglet pink" loading="lazy"></li>
   <li><img src="icons/all/pink-on-white.png" srcset="icons/all/pink-on-white@2x.png 2x" width="120" height="120" alt="Pink on white" title="Pink on white" loading="lazy"></li>
-  <li><img src="icons/all/blue-pink-curl.png" srcset="icons/all/blue-pink-curl@2x.png 2x" width="120" height="120" alt="Blue, pink curl" title="Blue, pink curl" loading="lazy"></li>
-  <li><img src="icons/all/blue-coral-curl.png" srcset="icons/all/blue-coral-curl@2x.png 2x" width="120" height="120" alt="Blue, coral curl" title="Blue, coral curl" loading="lazy"></li>
+  <li><img src="icons/all/ink.png" srcset="icons/all/ink@2x.png 2x" width="120" height="120" alt="Ink" title="Ink" loading="lazy"></li>
   <li><img src="icons/all/warm-pink.png" srcset="icons/all/warm-pink@2x.png 2x" width="120" height="120" alt="Warm pink" title="Warm pink" loading="lazy"></li>
+  <li><img src="icons/all/blue-pink-curl.png" srcset="icons/all/blue-pink-curl@2x.png 2x" width="120" height="120" alt="Blue, pink curl" title="Blue, pink curl" loading="lazy"></li>
   <li><img src="icons/all/coral.png" srcset="icons/all/coral@2x.png 2x" width="120" height="120" alt="Coral" title="Coral" loading="lazy"></li>
   <li><img src="icons/all/moss.png" srcset="icons/all/moss@2x.png 2x" width="120" height="120" alt="Moss" title="Moss" loading="lazy"></li>
   <li><img src="icons/all/butter.png" srcset="icons/all/butter@2x.png 2x" width="120" height="120" alt="Butter" title="Butter" loading="lazy"></li>
+  <li><img src="icons/all/blue-coral-curl.png" srcset="icons/all/blue-coral-curl@2x.png 2x" width="120" height="120" alt="Blue, coral curl" title="Blue, coral curl" loading="lazy"></li>
 </ul>
 
 <p class="apparatus">Pencil blue is the default, and the only one with dark and tinted versions.</p>
