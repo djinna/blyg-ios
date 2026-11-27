@@ -89,8 +89,20 @@ final class LibraryModel {
             library.blygs.append(SavedBlyg(origin: resolved.origin, manifest: resolved.manifest, addedAt: .now))
             save(in: batch)
         }
+        noLongerPending(resolved.origin, in: batch)
         await refresh(resolved.origin, in: batch)
         return resolved.origin
+    }
+
+    /// `followed` is followed now, by whatever route (by hand, too). If a Studio's list had it waiting to be tried
+    /// again, it stops waiting and is remembered as dealt with: unfollowed later, it mustn't be retried and come back.
+    private func noLongerPending(_ followed: URL, in batch: Batch?) {
+        for index in library.blygs.indices where library.blygs[index].pendingFollows?.contains(where: { $0.origin == followed }) == true {
+            library.blygs[index].pendingFollows?.removeAll { $0.origin == followed }
+            if library.blygs[index].pendingFollows?.isEmpty == true { library.blygs[index].pendingFollows = nil }
+            if library.blygs[index].studioFollows?.contains(followed) == false { library.blygs[index].studioFollows?.append(followed) }
+            save(in: batch)
+        }
     }
 
     func remove(_ origin: URL) {
@@ -111,6 +123,18 @@ final class LibraryModel {
         await refreshTogether(library.blygs.map(\.origin))
     }
 
+    /// The refresh as the app opens: `refreshAll`, and also the one time a blyg a Studio follows that couldn't be
+    /// reached before is tried again. Once per launch: only the first call retries, and pull to refresh or
+    /// coming back to the app never does, so an address that's gone isn't asked over and over.
+    func refreshAtLaunch() async {
+        let retry = !retriedPendingThisLaunch
+        retriedPendingThisLaunch = true
+        await refreshTogether(library.blygs.map(\.origin), retryingPending: retry)
+    }
+
+    /// Whether this launch's one retry of pending follows has been used (see `refreshAtLaunch`).
+    @ObservationIgnored private var retriedPendingThisLaunch = false
+
     /// Coming back to the app: catch up without hammering anyone. Your own blygs are refreshed after 30 seconds,
     /// so a post made from the share sheet (which can't tell the app) shows up; the others after 10 minutes.
     func refreshStale(now: Date = .now) async {
@@ -126,10 +150,10 @@ final class LibraryModel {
     /// timeline and saving the file both cost time in proportion to the whole library, so doing them per blyg
     /// made a refresh of many blygs cost many times over. Instead the timeline is rebuilt at a pace while blygs
     /// arrive (`rebuildTimelineSoon`) and once more when all have answered, and the file is saved once, at the end.
-    private func refreshTogether(_ origins: [URL]) async {
+    private func refreshTogether(_ origins: [URL], retryingPending: Bool = false) async {
         guard !origins.isEmpty else { return }
         refreshingTogether += 1
-        let batch = Batch()
+        let batch = Batch(retriesPending: retryingPending)
         await withTaskGroup(of: Void.self) { group in
             for origin in origins {
                 group.addTask { await self.refresh(origin, in: batch) }
@@ -150,6 +174,9 @@ final class LibraryModel {
     /// One refresh of several blygs. Its blygs leave the save for its end, and the timeline for the next paced
     /// rebuild or its end, whichever comes first (see `awaitingSave` and `awaitingTimeline`).
     private final class Batch {
+        /// The launch refresh: blygs a Studio follows that couldn't be reached before get their one retry in it.
+        let retriesPending: Bool
+        init(retriesPending: Bool) { self.retriesPending = retriesPending }
         var id: ObjectIdentifier { ObjectIdentifier(self) }
     }
 
@@ -175,6 +202,7 @@ final class LibraryModel {
         var merged = updated
         merged.postingAPI = library.blygs[index].postingAPI
         merged.studioFollows = library.blygs[index].studioFollows
+        merged.pendingFollows = library.blygs[index].pendingFollows
         library.blygs[index] = merged
         save(in: batch)
         if let batch {
@@ -183,7 +211,9 @@ final class LibraryModel {
         } else {
             await rebuildTimeline()
         }
-        if merged.studioFollows != nil { await followStudiosNewSubscriptions(origin, in: batch) }
+        if merged.studioFollows != nil {
+            await followStudiosNewSubscriptions(origin, in: batch, retryingPending: batch?.retriesPending ?? false)
+        }
     }
 
     // MARK: Timeline and saving, off the main actor
@@ -471,6 +501,7 @@ final class LibraryModel {
         guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
         library.blygs[index].postingAPI = nil
         library.blygs[index].studioFollows = nil
+        library.blygs[index].pendingFollows = nil
         save()
     }
 
@@ -479,6 +510,8 @@ final class LibraryModel {
         var added = 0
         var alreadyFollowing = 0
         var failed: [String] = []
+        /// How many of `failed` couldn't be reached and will be tried again when the app next opens.
+        var retrying = 0
         var skippedFeeds = 0
     }
 
@@ -508,13 +541,17 @@ final class LibraryModel {
                 result.alreadyFollowing += 1
                 continue
             }
-            do {
-                // Resolution can land on an origin already followed under another spelling: count what changed.
-                let before = library.blygs.count
-                try await add(candidate.absoluteString)
+            // Resolution can land on an origin already followed under another spelling: count what changed.
+            let before = library.blygs.count
+            let outcome = await follow(candidate, in: nil)
+            if outcome == .followed {
                 if library.blygs.count > before { result.added += 1 } else { result.alreadyFollowing += 1 }
-            } catch {
+            } else {
                 result.failed.append(candidate.host() ?? candidate.absoluteString)
+                // The whole list was remembered as it arrived; one that couldn't be reached is taken back out
+                // and kept to try again, by the same rule as on any later refresh.
+                recordFollow(outcome, of: candidate, for: origin, in: nil)
+                if self.blyg(origin)?.pendingFollows?.contains(where: { $0.origin == candidate }) == true { result.retrying += 1 }
             }
         }
         progress(candidates.count, candidates.count)
@@ -526,39 +563,110 @@ final class LibraryModel {
 
     /// On refresh, while keeping in step: follow the blygs new to the Studio's list since last time. Never
     /// unfollows, and never re-adds one the person unfollowed here. Fails quietly; the next refresh tries again.
-    func followStudiosNewSubscriptions(_ origin: URL) async { await followStudiosNewSubscriptions(origin, in: nil) }
+    ///
+    /// A blyg that can't be reached isn't remembered as dealt with: it goes on the pending list with a count of
+    /// tries. `retryingPending` (the launch refresh, once per launch) tries those again; no other refresh does.
+    /// One that answers is followed and leaves the list; after `PendingFollow.maxAttempts` tries in all it's
+    /// remembered as dealt with and left alone. One the Studio no longer lists leaves the list untried.
+    func followStudiosNewSubscriptions(_ origin: URL, retryingPending: Bool = false) async {
+        await followStudiosNewSubscriptions(origin, in: nil, retryingPending: retryingPending)
+    }
 
-    private func followStudiosNewSubscriptions(_ origin: URL, in batch: Batch?) async {
-        guard let blyg = blyg(origin), let known = blyg.studioFollows, let api = blyg.postingAPI,
+    private func followStudiosNewSubscriptions(_ origin: URL, in batch: Batch?, retryingPending: Bool) async {
+        guard let blyg = blyg(origin), blyg.studioFollows != nil, let api = blyg.postingAPI,
               let token = tokens.token(for: origin),
               let now = try? await Self.blygsFollowed(by: StudioClient(api: api, token: token, transport: transport))
         else { return }
-        // New to the Studio's list. A set, so a list of thousands isn't searched once per entry on the main actor.
+        // As things stand now the list has arrived, not as they were when it was asked for.
+        guard let current = self.blyg(origin), let known = current.studioFollows else { return } // switched off meanwhile
+        // Sets, so a list of thousands isn't searched once per entry on the main actor.
+        let listed = Set(now)
+        var pending = current.pendingFollows ?? []
+        if pending.contains(where: { !listed.contains($0.origin) }) {
+            // The Studio has stopped following these: there's nothing left to try.
+            pending.removeAll { !listed.contains($0.origin) }
+            setPendingFollows(origin, pending, in: batch)
+        }
+        let waiting = Set(pending.map(\.origin))
+        let retries = retryingPending ? pending.map(\.origin) : []
+        // New to the Studio's list: not dealt with before, and not already waiting for the next launch.
         let seen = Set(known)
-        let fresh = now.filter { !seen.contains($0) }
-        guard self.blyg(origin)?.studioFollows != nil else { return } // switched off meanwhile
-        if !fresh.isEmpty { // most refreshes find nothing new, and needn't look through the library at all
+        let fresh = now.filter { !seen.contains($0) && !waiting.contains($0) }
+        if !fresh.isEmpty || !retries.isEmpty { // most refreshes find nothing new, and needn't look through the library at all
             // Remembered as soon as each has been dealt with, and not before. If the app is closed part-way, the next
             // refresh takes up the ones not yet tried and leaves alone the ones that were (one unfollowed here
             // since doesn't come back). Those already followed here need nothing more, so they're remembered at once.
             let followed = Set(library.blygs.map(\.origin))
             rememberStudioFollows(origin, fresh.filter(followed.contains), in: batch)
-            for new in fresh where !followed.contains(new) {
+            // One at a time, the retries first; each is tried once in this pass.
+            for candidate in retries + fresh.filter({ !followed.contains($0) }) {
                 // Switched off, disconnected or unfollowed meanwhile: nothing more is followed.
-                guard self.blyg(origin)?.studioFollows != nil else { return }
+                guard let state = self.blyg(origin), state.studioFollows != nil else { return }
+                // A retry that stopped waiting while the earlier ones were tried (followed by hand, say) is done with.
+                if waiting.contains(candidate), state.pendingFollows?.contains(where: { $0.origin == candidate }) != true { continue }
                 // One followed by hand while the earlier ones were being added needs no adding, but it has been
                 // dealt with and is remembered like the rest: unfollowed later, it mustn't look new next time.
-                if self.blyg(new) == nil { _ = try? await add(new.absoluteString, in: batch) }
-                rememberStudioFollows(origin, [new], in: batch)
+                let outcome = self.blyg(candidate) == nil ? await follow(candidate, in: batch) : .followed
+                recordFollow(outcome, of: candidate, for: origin, in: batch)
             }
-            guard self.blyg(origin)?.studioFollows != nil else { return } // switched off during the adds
         }
-        setStudioFollows(origin, now, in: batch) // the Studio's own order, without any it has dropped
+        guard let after = self.blyg(origin), after.studioFollows != nil else { return } // switched off during the adds
+        // The Studio's own order, without any it has dropped, and without those still waiting to be tried again.
+        let stillWaiting = Set((after.pendingFollows ?? []).map(\.origin))
+        setStudioFollows(origin, stillWaiting.isEmpty ? now : now.filter { !stillWaiting.contains($0) }, in: batch)
     }
 
+    /// How a try at following a blyg from a Studio's list went.
+    private enum FollowOutcome {
+        case followed
+        /// No blyg answered at its address: a network error, a timeout, or something there that isn't a blyg.
+        /// It may answer another day.
+        case unreachable
+        /// It isn't an address this app can follow at all, so trying again can't help.
+        case impossible
+    }
+
+    private func follow(_ candidate: URL, in batch: Batch?) async -> FollowOutcome {
+        do {
+            try await add(candidate.absoluteString, in: batch)
+            return .followed
+        } catch Resolver.Failure.notFound {
+            return .unreachable
+        } catch {
+            return .impossible
+        }
+    }
+
+    /// Writes down how a try at following `candidate`, from the list of `origin`'s Studio, went: dealt with for
+    /// good (followed, impossible, or out of tries), or kept pending with one more try counted against it.
+    private func recordFollow(_ outcome: FollowOutcome, of candidate: URL, for origin: URL, in batch: Batch?) {
+        guard let index = library.blygs.firstIndex(where: { $0.origin == origin }),
+              library.blygs[index].studioFollows != nil else { return } // switched off meanwhile: nothing is kept
+        var pending = library.blygs[index].pendingFollows ?? []
+        let attempts = (pending.first { $0.origin == candidate }?.attempts ?? 0) + 1
+        pending.removeAll { $0.origin == candidate }
+        if outcome == .unreachable, attempts < PendingFollow.maxAttempts {
+            pending.append(PendingFollow(origin: candidate, attempts: attempts))
+            library.blygs[index].studioFollows?.removeAll { $0 == candidate }
+        } else if library.blygs[index].studioFollows?.contains(candidate) == false {
+            library.blygs[index].studioFollows?.append(candidate)
+        }
+        library.blygs[index].pendingFollows = pending.isEmpty ? nil : pending
+        save(in: batch)
+    }
+
+    private func setPendingFollows(_ origin: URL, _ pending: [PendingFollow], in batch: Batch?) {
+        guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
+        library.blygs[index].pendingFollows = pending.isEmpty ? nil : pending
+        save(in: batch)
+    }
+
+    /// The blygs in a Studio's list, in its order, each once: one listed twice is still tried, and counted, once.
     nonisolated private static func blygOrigins(in subscriptions: [StudioSubscription]) -> [URL] {
-        subscriptions.filter { $0.kind == "blyg" }
+        var listed: Set<URL> = []
+        return subscriptions.filter { $0.kind == "blyg" }
             .compactMap { $0.origin.flatMap { URL(string: $0.trimmingCharacters(in: .whitespaces)) } }
+            .filter { listed.insert($0).inserted }
     }
 
     /// Adds to the remembered list, if keeping in step is still on.
@@ -572,6 +680,8 @@ final class LibraryModel {
     private func setStudioFollows(_ origin: URL, _ follows: [URL]?, in batch: Batch? = nil) {
         guard let index = library.blygs.firstIndex(where: { $0.origin == origin }) else { return }
         library.blygs[index].studioFollows = follows
+        // Off: nothing waits to be tried again. (Switching on again starts from the Studio's list as it is then.)
+        if follows == nil { library.blygs[index].pendingFollows = nil }
         save(in: batch)
     }
 

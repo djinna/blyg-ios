@@ -80,6 +80,6 @@ struct RootView: View {
             path = [.blygs, .blyg(first.origin), .blygPosts(first.origin)]
         }
         #endif
-        await model.refreshAll()
+        await model.refreshAtLaunch() // also the one retry, per launch, of blygs a Studio follows that couldn't be reached
     }
 }

@@ -22,6 +22,10 @@ nonisolated struct SavedBlyg: Codable, Sendable, Equatable, Identifiable {
     /// Keeping in step with this blyg's Studio: the blygs its subscriptions listed last time. Only blygs new to
     /// that list are followed on later refreshes, so one unfollowed in the app never comes back. Nil when off.
     var studioFollows: [URL]?
+    /// Keeping in step: blygs on the Studio's list that couldn't be reached when this app tried to follow them.
+    /// They aren't in `studioFollows` (not dealt with yet), and are tried again once each time the app opens
+    /// (see `PendingFollow`). Nil when there are none; a file saved before this existed has none.
+    var pendingFollows: [PendingFollow]?
 
     var id: URL { origin }
 
@@ -29,6 +33,19 @@ nonisolated struct SavedBlyg: Codable, Sendable, Equatable, Identifiable {
         let title = manifest.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return title.isEmpty ? (origin.host() ?? origin.absoluteString) : title
     }
+}
+
+/// A blyg a Studio follows that this app tried to follow too, and couldn't reach: a network error, a timeout,
+/// or no blyg found at the address. It's tried again once per launch of the app, until it answers or has
+/// been tried `maxAttempts` times in all; then it's remembered as dealt with, like any other on the list.
+nonisolated struct PendingFollow: Codable, Sendable, Equatable {
+    /// How many tries a blyg gets, the first one included, before it's given up on.
+    static let maxAttempts = 3
+
+    /// The address as the Studio lists it.
+    var origin: URL
+    /// The tries so far that didn't reach it, the first one included.
+    var attempts: Int
 }
 
 nonisolated struct SavedItem: Codable, Sendable, Equatable {

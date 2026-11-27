@@ -144,6 +144,7 @@ struct BlygDetailView: View {
                 if result.alreadyFollowing > 0 { parts.append("\(result.alreadyFollowing) already followed.") }
                 if result.skippedFeeds > 0 { parts.append("\(result.skippedFeeds) plain RSS feeds skipped.") }
                 if !result.failed.isEmpty { parts.append("Couldn't add: \(result.failed.joined(separator: ", ")).") }
+                if result.retrying > 0 { parts.append("Blyglet will try again the next time it opens.") }
                 importResult = parts.joined(separator: " ")
             } catch {
                 importResult = (error as? StudioError).map { $0.status == 403 ? "This token can't read the Studio's subscriptions." : $0.message }
