@@ -20,7 +20,7 @@ Blyglet is for [Blygger](https://blygger.org) blygs. It does a few things well, 
 - **Keep in step** with the blygs your Studio follows. One that can't be reached gets two more tries, on later launches.
 - **Make it yours** with color themes and icons.
 
-<ul class="icon-grid" aria-label="The twelve app icons">
+<ul class="icon-grid" aria-label="The app icons">
   <li><img src="icons/all/pencil-blue.png" srcset="icons/all/pencil-blue@2x.png 2x" width="100" height="100" alt="Pencil blue" title="Pencil blue" loading="lazy"></li>
   <li><img src="icons/all/piglet-pink.png" srcset="icons/all/piglet-pink@2x.png 2x" width="100" height="100" alt="Piglet pink" title="Piglet pink" loading="lazy"></li>
   <li><img src="icons/all/coral.png" srcset="icons/all/coral@2x.png 2x" width="100" height="100" alt="Coral" title="Coral" loading="lazy"></li>
@@ -35,7 +35,7 @@ Blyglet is for [Blygger](https://blygger.org) blygs. It does a few things well, 
   <li><img src="icons/all/butter.png" srcset="icons/all/butter@2x.png 2x" width="100" height="100" alt="Butter" title="Butter" loading="lazy"></li>
 </ul>
 
-<p class="apparatus">Pencil blue is the default, and the only one with dark and tinted versions.</p>
+<p class="apparatus icon-note">Pencil blue is the default, and the only one with dark and tinted versions.</p>
 
 Blyglet does quick posts and replies. For editing, threads with quotes, pins and the rest, it opens your blyg's Studio.
 
