@@ -76,7 +76,24 @@
     '</button>';
   }
 
+  // A change made here or through window.blygletLook: shown, saved, and announced to the page.
+  var barEl = null;
+  function commit() {
+    apply(barEl); save();
+    try { document.dispatchEvent(new CustomEvent('blyglet:look', { detail: { palette: state.palette, mode: state.mode } })); } catch (e) {}
+  }
+  // For other parts of the page (the app icons): read the look, or set its palette and, optionally, its mode.
+  window.blygletLook = {
+    get: function () { return { font: state.font, palette: state.palette, mode: state.mode }; },
+    set: function (next) {
+      if (next.palette && PALETTES[next.palette]) state.palette = next.palette;
+      if (next.mode && MODES.indexOf(next.mode) >= 0) state.mode = next.mode;
+      commit();
+    },
+  };
+
   function mount(bar) {
+    barEl = bar;
     bar.classList.add('theme-bar');
     bar.innerHTML =
       '<button type="button" class="font-name" aria-haspopup="true" aria-expanded="false" title="Type and color"></button>' +
@@ -121,12 +138,12 @@
       btn.addEventListener('click', function () {
         if (this.dataset.font) state.font = this.dataset.font; else state.palette = this.dataset.palette;
         setExpanded(false);
-        apply(bar); save();
+        commit();
       });
     });
     bar.querySelector('.dark-btn').addEventListener('click', function () {
       state.mode = MODES[(MODES.indexOf(state.mode) + 1) % MODES.length];
-      apply(bar); save();
+      commit();
     });
     if (mq) {
       var onChange = function () { if (state.mode === 'system') apply(bar); };
