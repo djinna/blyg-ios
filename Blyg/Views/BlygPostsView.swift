@@ -46,7 +46,12 @@ struct BlygPostsView: View {
         .navigationTitle(blyg?.title ?? "Posts")
         .navigationBarTitleDisplayMode(.inline)
         // Built again whenever the blyg has been refreshed: that's the only time its posts change.
-        .task(id: blyg?.lastRefresh) { posts = await model.posts(of: origin) }
+        // When that happens SwiftUI cancels the build under way, which still finishes: its rows are out of date
+        // and are dropped, so a slow old build can't land on top of a newer one.
+        .task(id: blyg?.lastRefresh) {
+            let built = await model.posts(of: origin)
+            if !Task.isCancelled { posts = built }
+        }
     }
 
     static func endLine(_ count: Int) -> String {

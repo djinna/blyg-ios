@@ -65,6 +65,9 @@ struct RootView: View {
         if let seed = LaunchFlags.value(after: LaunchFlags.seedBlyg) {
             if let origin = try? await model.add(seed), let token = LaunchFlags.value(after: LaunchFlags.connectToken) {
                 try? await model.connect(origin, token: token)
+                if let pending = LaunchFlags.value(after: LaunchFlags.seedPendingFollow).flatMap(URL.init(string:)) {
+                    model.seedPendingFollow(pending, for: origin)
+                }
             }
         }
         if LaunchFlags.has(LaunchFlags.openComposer) { showingComposer = true }

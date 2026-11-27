@@ -28,6 +28,9 @@ nonisolated enum LaunchFlags {
     static let openComposer = "-openComposer"
     /// Open the seeded blyg's list of all its posts at launch.
     static let openBlygPosts = "-openBlygPosts"
+    /// `-seedPendingFollow <url>`, with -connectToken: the seeded blyg keeps in step with its Studio, and this
+    /// blyg on the Studio's list is waiting to be tried again, as if it couldn't be reached last time.
+    static let seedPendingFollow = "-seedPendingFollow"
     /// `-feedNow <ISO 8601 date>`, with -useFixtures: the moment the main feed's window is measured from.
     static let feedNow = "-feedNow"
 

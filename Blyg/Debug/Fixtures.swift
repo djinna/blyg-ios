@@ -105,8 +105,13 @@ nonisolated enum Fixtures {
     "media":[],"changelog":[{"version":1,"at":"2026-11-17T14:00:00Z","note":null}]}
     """
 
+    static let elsewhereIndex = """
+    {"items":[{"id":"\(elsewherePost)","kind":"fragment","created":"2026-11-17T14:00:00Z","updated":"2026-11-17T14:00:00Z","version":1}]}
+    """
+
     static let responses: [String: Response] = [
         "https://elsewhere.example/blyg/blyg.json": Response(status: 200, contentType: "application/json", body: elsewhereManifest),
+        "https://elsewhere.example/blyg/items/index.json": Response(status: 200, contentType: "application/json", body: elsewhereIndex),
         "https://elsewhere.example/blyg/items/\(elsewherePost).json": Response(status: 200, contentType: "application/json", body: elsewhereDocument),
         "https://sample.example/blyg.json": Response(status: 200, contentType: "application/json", body: manifest),
         "https://sample.example/feed.xml": Response(status: 200, contentType: "application/rss+xml", body: feed),
@@ -125,6 +130,10 @@ nonisolated enum Fixtures {
     static let apiResponses: [String: Response] = [
         "GET https://sample.example/api/capabilities": Response(status: 200, contentType: "application/json", body: """
             {"contractVersion":"5.14.0","endpoints":{"publicBase":"https://sample.example","studio":"https://sample.example/studio","api":"https://sample.example/api"},"operations":["createItem"]}
+            """),
+        // The Studio follows the second fixture blyg, for the launch retry's UI test.
+        "GET https://sample.example/api/subscriptions": Response(status: 200, contentType: "application/json", body: """
+            {"items":[{"kind":"blyg","origin":"https://elsewhere.example/blyg/","title":"Elsewhere Journal"}],"page":{"limit":100,"nextCursor":null}}
             """),
         "POST https://sample.example/api/items": Response(status: 201, contentType: "application/json", body: """
             {"id":"\(draftId)","revision":1,"kind":"fragment","status":"draft","created":"2026-11-20T21:37:10Z","updated":"2026-11-20T21:37:10Z","version":0,"contentMd":"Hello","dirty":true,"stubOf":null,"forkedFrom":null,"forkCite":null,"provenance":[],"responses":"default","highlight":"default"}
