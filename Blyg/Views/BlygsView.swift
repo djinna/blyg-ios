@@ -60,7 +60,7 @@ struct BlygsView: View {
     }
 
     private func status(_ blyg: SavedBlyg) -> String {
-        let count = blyg.items.values.filter(\.isShowable).count
+        let count = blyg.postCount // every saved post, not only those in the main feed's window
         var parts = [count == 1 ? "1 post" : "\(count) posts"]
         if let error = blyg.lastError {
             parts.append(error)

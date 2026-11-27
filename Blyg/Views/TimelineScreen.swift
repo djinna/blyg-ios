@@ -9,10 +9,10 @@ struct TimelineScreen: View {
     var body: some View {
         content
             .navigationTitle("Blyglet")
-            // With posts showing, the masthead row carries the name, so the bar stays small.
-            .navigationBarTitleDisplayMode(model.timeline.isEmpty ? .large : .inline)
+            // With the feed showing, the masthead row carries the name, so the bar stays small.
+            .navigationBarTitleDisplayMode(showsFeed ? .inline : .large)
             .toolbar {
-                if !model.timeline.isEmpty {
+                if showsFeed {
                     ToolbarItem(placement: .principal) { Text(verbatim: "").accessibilityHidden(true) }
                 }
             }
@@ -36,6 +36,10 @@ struct TimelineScreen: View {
             }
     }
 
+    /// The feed is shown once any post is saved, even when none is recent enough to be in it: then it says so,
+    /// and New post and pull to refresh stay where they are.
+    private var showsFeed: Bool { !model.timeline.isEmpty || model.library.hasPosts }
+
     @ViewBuilder private var content: some View {
         if model.library.blygs.isEmpty {
             ScrollingIfNeeded { ContentUnavailableView {
@@ -47,7 +51,7 @@ struct TimelineScreen: View {
                     .buttonStyle(.borderedProminent)
                     .accessibilityIdentifier("emptyAddBlygButton")
             } }
-        } else if model.timeline.isEmpty {
+        } else if !showsFeed {
             if model.isRefreshingAny {
                 ProgressView("Loading posts…")
             } else {
@@ -69,14 +73,9 @@ struct TimelineScreen: View {
                     notice("Couldn't refresh \(blyg.title). \(blyg.lastError ?? "") Showing the saved copy.", systemImage: "wifi.exclamationmark")
                 }
                 ForEach(model.timeline) { entry in
-                    NavigationLink(value: Route.post(entry)) {
-                        TimelineRow(entry: entry)
-                    }
-                    .accessibilityIdentifier("timelineRow")
-                    .listRowBackground(theme.page)
-                    .listRowSeparatorTint(theme.rule)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 16))
+                    PostLink(entry: entry, identifier: "timelineRow")
                 }
+                feedEnd
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -118,6 +117,22 @@ struct TimelineScreen: View {
         .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 12, trailing: 16))
     }
 
+    /// The feed has an end: a line saying so and how far back it goes, then where the older posts are.
+    private var feedEnd: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(FeedWindow.endLine(shown: model.timeline.count, oldest: model.timeline.last?.sortDate))
+            Text(FeedWindow.olderLine)
+        }
+        .font(theme.apparatus)
+        .foregroundStyle(theme.soft)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("feedEnd")
+        .listRowSeparator(.hidden, edges: .bottom)
+        .listRowBackground(theme.page)
+        .listRowSeparatorTint(theme.rule)
+        .listRowInsets(EdgeInsets(top: 18, leading: 24, bottom: 28, trailing: 16))
+    }
+
     private var followingLine: String {
         let count = model.library.blygs.count
         var line = count == 1 ? "Following 1 blyg" : "Following \(count) blygs"
@@ -141,6 +156,23 @@ struct TimelineScreen: View {
     private var problemSummary: String? {
         let errors = model.library.blygs.compactMap { blyg in blyg.lastError.map { "\(blyg.title): \($0)" } }
         return errors.isEmpty ? nil : errors.joined(separator: "\n")
+    }
+}
+
+/// A post's row as a link to the post, for the feed and for a blyg's own list of posts.
+struct PostLink: View {
+    let entry: TimelineEntry
+    let identifier: String
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        NavigationLink(value: Route.post(entry)) {
+            TimelineRow(entry: entry)
+        }
+        .accessibilityIdentifier(identifier)
+        .listRowBackground(theme.page)
+        .listRowSeparatorTint(theme.rule)
+        .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 16))
     }
 }
 

@@ -12,12 +12,23 @@ struct BlygApp: App {
     }
 
     static func makeModel() -> LibraryModel {
+        var store: LibraryStore? = LibraryStore.appSupport()
+        var tokens: any TokenStore = KeychainTokenStore()
+        var buildTimeline: @Sendable (Library) -> [TimelineEntry] = { $0.timeline() }
         #if DEBUG
         if LaunchFlags.has(LaunchFlags.inMemory) {
-            return LibraryModel(store: nil, fetcher: URLSessionFetcher(), tokens: MemoryTokenStore(), transport: apiTransport())
+            store = nil
+            tokens = MemoryTokenStore()
+        }
+        if LaunchFlags.has(LaunchFlags.useFixtures) {
+            // The fixture blyg's posts are dated November 2026. The feed's window is measured from then (or from
+            // `-feedNow`), so the UI tests and screenshots don't change as the calendar moves on.
+            let now = LaunchFlags.value(after: LaunchFlags.feedNow).flatMap(BlygDate.parse) ?? Fixtures.now
+            buildTimeline = { $0.timeline(now: now) }
         }
         #endif
-        return LibraryModel(store: LibraryStore.appSupport(), fetcher: URLSessionFetcher(), tokens: KeychainTokenStore(), transport: apiTransport())
+        return LibraryModel(store: store, fetcher: URLSessionFetcher(), tokens: tokens, transport: apiTransport(),
+                            buildTimeline: buildTimeline)
     }
 
     /// The owner-API transport, with the DEBUG fixture network when the app runs with -useFixtures.

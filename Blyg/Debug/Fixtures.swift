@@ -8,6 +8,9 @@ import Foundation
 /// holds one post the thread links to, for quote cards.
 nonisolated enum Fixtures {
     static let origin = URL(string: "https://sample.example/")!
+    /// "Now" for the fixture blyg, a day after its newest post: what the main feed's window is measured from
+    /// when the app runs on fixtures, so every post here stays inside it whatever the real date.
+    static let now = BlygDate.parse("2026-11-20T12:00:00Z")!
 
     static let fragmentEdited = "1f1f1f1f1f1f1f1f1f1f1f1f1f"
     static let fragmentPlain = "2f2f2f2f2f2f2f2f2f2f2f2f2f"

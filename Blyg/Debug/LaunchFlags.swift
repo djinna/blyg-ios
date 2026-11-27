@@ -26,6 +26,10 @@ nonisolated enum LaunchFlags {
     static let openReply = "-openReply"
     /// Open the composer at launch.
     static let openComposer = "-openComposer"
+    /// Open the seeded blyg's list of all its posts at launch.
+    static let openBlygPosts = "-openBlygPosts"
+    /// `-feedNow <ISO 8601 date>`, with -useFixtures: the moment the main feed's window is measured from.
+    static let feedNow = "-feedNow"
 
     static func value(after flag: String) -> String? {
         let args = ProcessInfo.processInfo.arguments

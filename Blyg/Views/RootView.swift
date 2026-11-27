@@ -4,6 +4,8 @@ enum Route: Hashable {
     case post(TimelineEntry)
     case blygs
     case blyg(URL)
+    /// Every saved post of one blyg.
+    case blygPosts(URL)
     case settings
 }
 
@@ -23,6 +25,7 @@ struct RootView: View {
                     case .post(let entry): PostView(entry: entry)
                     case .blygs: BlygsView(showingAdd: $showingAdd)
                     case .blyg(let origin): BlygDetailView(origin: origin)
+                    case .blygPosts(let origin): BlygPostsView(origin: origin)
                     case .settings: SettingsView()
                     }
                 }
@@ -73,6 +76,9 @@ struct RootView: View {
         if LaunchFlags.has(LaunchFlags.openBlygs) { path = [.blygs] }
         if LaunchFlags.has(LaunchFlags.openSettings) { path = [.blygs, .settings] }
         if LaunchFlags.has(LaunchFlags.openBlyg), let first = model.library.blygs.first { path = [.blygs, .blyg(first.origin)] }
+        if LaunchFlags.has(LaunchFlags.openBlygPosts), let first = model.library.blygs.first {
+            path = [.blygs, .blyg(first.origin), .blygPosts(first.origin)]
+        }
         #endif
         await model.refreshAll()
     }

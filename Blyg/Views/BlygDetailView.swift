@@ -27,6 +27,15 @@ struct BlygDetailView: View {
                 }
 
                 Section {
+                    NavigationLink(value: Route.blygPosts(origin)) {
+                        LabeledContent("All posts", value: "\(blyg.postCount)")
+                    }
+                    .accessibilityIdentifier("allPostsRow")
+                } footer: {
+                    Text("The main feed shows the last \(FeedWindow.days) days. Everything saved from this blyg is here.")
+                }
+
+                Section {
                     if model.isConnected(origin) {
                         Label("This phone can post here.", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
