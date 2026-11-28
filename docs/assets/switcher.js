@@ -34,13 +34,17 @@
 
   var root = document.documentElement;
   var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-  var state = { font: 'jetbrains', palette: 'blue', mode: 'system' }; // the default look; the layout's CSS matches it
+  var state = { font: 'jetbrains', palette: 'blue', mode: 'system', icon: null }; // the default look; the layout's CSS matches it
+  // The app icon chosen with the front page's stickers (assets/stickers.js), if any: it replaces the color theme's
+  // icon in the nav and hero. Pencil blue, or none, leaves the theme's own, which has a dark version.
+  var ICON_BASE = ((document.currentScript && document.currentScript.src) || '').replace(/assets\/switcher\.js.*$/, '') + 'icons/all/';
   try {
     var saved = JSON.parse(localStorage.getItem(STORAGE));
     if (saved) {
       if (FONTS[saved.font]) state.font = saved.font;
       if (PALETTES[saved.palette]) state.palette = saved.palette;
       if (MODES.indexOf(saved.mode) >= 0) state.mode = saved.mode;
+      if (typeof saved.icon === 'string' && /^[a-z-]+$/.test(saved.icon)) state.icon = saved.icon;
     }
   } catch (e) { /* first visit, or storage blocked: the defaults */ }
 
@@ -53,6 +57,8 @@
     root.setAttribute('data-palette', state.palette);
     root.classList.toggle('dark', state.mode === 'dark');
     root.classList.toggle('light', state.mode === 'light');
+    if (state.icon && state.icon !== 'pencil-blue') root.style.setProperty('--icon', 'url(' + ICON_BASE + state.icon + '@2x.png)');
+    else root.style.removeProperty('--icon');
     if (!bar) return;
     bar.querySelector('.font-name').textContent = FONTS[state.font];
     bar.querySelectorAll('.theme-opt').forEach(function (b) {
@@ -82,12 +88,13 @@
     apply(barEl); save();
     try { document.dispatchEvent(new CustomEvent('blyglet:look', { detail: { palette: state.palette, mode: state.mode } })); } catch (e) {}
   }
-  // For other parts of the page (the app icons): read the look, or set its palette and, optionally, its mode.
+  // For other parts of the page (the stickers): read the look, or set its palette, mode or icon.
   window.blygletLook = {
-    get: function () { return { font: state.font, palette: state.palette, mode: state.mode }; },
+    get: function () { return { font: state.font, palette: state.palette, mode: state.mode, icon: state.icon }; },
     set: function (next) {
       if (next.palette && PALETTES[next.palette]) state.palette = next.palette;
       if (next.mode && MODES.indexOf(next.mode) >= 0) state.mode = next.mode;
+      if (typeof next.icon === 'string' && /^[a-z-]+$/.test(next.icon)) state.icon = next.icon;
       commit();
     },
   };

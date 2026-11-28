@@ -82,7 +82,7 @@ code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: 
 /* The note under the feature list hangs at 40px, the browser's list indent, in line with the bullets' text. */
 .icon-note { margin-left: 40px; }
 /* The app icons as stickers beside the hero, or a band under it on phones. Each is a button that sets the
-   page's color theme, or the nearest one (assets/stickers.js); its place and tilt are in its style attribute.
+   page's icon and brings its colors: its theme, or the nearest one (assets/stickers.js); its place and tilt are in its style attribute.
    Without JavaScript they're just stickers. The pressed one lifts and straightens. */
 .hero-stickers { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; column-gap: 1.5rem; align-items: center; }
 @media (min-width: 1000px) { .hero-stickers { grid-template-columns: minmax(0, 1fr) 17rem; margin-right: -9rem; } }
@@ -90,11 +90,17 @@ code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: 
 .sticker-sheet { list-style: none; margin: 0; padding: 0; position: relative; height: 15rem; }
 .sticker-sheet li { position: absolute; left: var(--x); top: var(--y); z-index: var(--z); width: 76px; }
 .sticker-sheet li:hover, .sticker-sheet li:focus-within { z-index: 30; }
-.sticker { display: block; width: 100%; padding: 0; border: 0; background: none; border-radius: 22.5%; cursor: pointer; transform: rotate(var(--r)); transition: transform 0.2s, filter 0.2s; }
+.sticker { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; border-radius: 22.5%; cursor: pointer; transform: rotate(var(--r)); transition: transform 0.2s, filter 0.2s; }
 .sticker img { display: block; width: 100%; height: auto; border-radius: 22.5%; box-shadow: 0 0 0 3px #fff, 0 6px 14px rgb(0 0 0 / 0.2); transition: box-shadow 0.2s; }
 .sticker:hover { transform: rotate(var(--r)) translateY(-3px); }
 .sticker:focus-visible { outline: 2px solid var(--pencil); outline-offset: 5px; }
-.sticker-status { min-height: 2.9em; margin: 0.75rem 0 0; font-size: 13px; }
+/* Paper and Ink fix light or dark: a badge with the appearance button's own glyph says so. */
+.sticker-mode { position: absolute; left: -7px; top: -7px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%;
+  background: var(--page); color: var(--ink); box-shadow: 0 0 0 1px var(--rule), 0 2px 6px rgb(0 0 0 / 0.18); font: 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* The pair sits above its neighbors, each badge on its outer top corner, so neither is covered. */
+.sticker-sheet li:has(> [data-mode]) { z-index: 35; }
+.sticker[data-mode="dark"] .sticker-mode { left: auto; right: -7px; }
+.sticker-note { margin: 0.75rem 0 0; font-size: 13px; }
 /* Phones: one overlapping row that scrolls sideways, eight stickers to the screen; the edges fade. */
 @media (max-width: 640px) {
   .hero-stickers { grid-template-columns: minmax(0, 1fr); }
@@ -106,7 +112,9 @@ code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: 
   .sticker-sheet li + li { margin-left: -12px; }
   .sticker { transform: rotate(var(--nr)); }
   .sticker:hover { transform: rotate(var(--nr)) translateY(-3px); }
-  .sticker-status { margin-top: 0.25rem; }
+  .sticker-mode { width: 20px; height: 20px; left: -5px; top: -5px; font-size: 12px; }
+  .sticker[data-mode="dark"] .sticker-mode { left: auto; right: -5px; }
+  .sticker-note { margin-top: 0.25rem; }
 }
 .sticker-sheet li:has(> [aria-pressed="true"]) { z-index: 40; }
 .sticker[aria-pressed="true"] { transform: translateY(-8px) rotate(0deg); }
