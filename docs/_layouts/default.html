@@ -100,7 +100,6 @@ code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: 
 /* The pair sits above its neighbors, each badge on its outer top corner, so neither is covered. */
 .sticker-sheet li:has(> [data-mode]) { z-index: 35; }
 .sticker[data-mode="dark"] .sticker-mode { left: auto; right: -7px; }
-.sticker-note { margin: 0.75rem 0 0; font-size: 13px; }
 /* Phones: one overlapping row that scrolls sideways, eight stickers to the screen; the edges fade. */
 @media (max-width: 640px) {
   .hero-stickers { grid-template-columns: minmax(0, 1fr); }
@@ -114,7 +113,6 @@ code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: 
   .sticker:hover { transform: rotate(var(--nr)) translateY(-3px); }
   .sticker-mode { width: 20px; height: 20px; left: -5px; top: -5px; font-size: 12px; }
   .sticker[data-mode="dark"] .sticker-mode { left: auto; right: -5px; }
-  .sticker-note { margin-top: 0.25rem; }
 }
 .sticker-sheet li:has(> [aria-pressed="true"]) { z-index: 40; }
 .sticker[aria-pressed="true"] { transform: translateY(-8px) rotate(0deg); }

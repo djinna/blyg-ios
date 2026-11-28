@@ -25,7 +25,6 @@ title: Blyglet
   <li style="--x:74%;--y:156px;--r:7deg;--z:12;--ny:10px;--nr:-9deg"><button type="button" class="sticker" data-icon="blue-coral-curl" data-palette="blue" title="Blue, coral curl"><img src="icons/all/blue-coral-curl.png" srcset="icons/all/blue-coral-curl@2x.png 2x" width="76" height="76" alt="Blue, coral curl"></button></li>
   <li style="--x:75%;--y:80px;--r:-10deg;--z:8;--ny:2px;--nr:4deg"><button type="button" class="sticker" data-icon="butter" data-palette="butter" title="Butter"><img src="icons/all/butter.png" srcset="icons/all/butter@2x.png 2x" width="76" height="76" alt="Butter"></button></li>
 </ul>
-<p class="apparatus sticker-note">Paper ☀︎ and Ink ☾︎ also set light or dark, until you pick another sticker or press ◐.</p>
 </div>
 </div>
 
